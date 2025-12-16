@@ -7,3 +7,5 @@ pydub
 librosa
 scikit-learn
 pandas
+praat-parselmouth
+
