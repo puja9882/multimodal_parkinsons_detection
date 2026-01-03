@@ -25,7 +25,12 @@ sys.path.append(PARENT_DIR)
 from multimodal_infer import *
 
 
-app = Flask(__name__)
+app = Flask(
+    __name__,
+    template_folder=os.path.join(CURRENT_DIR, "templates"),
+    static_folder=os.path.join(CURRENT_DIR, "static")
+)
+
 
 
 # ---------- GLOBAL STATS ----------
@@ -307,4 +312,5 @@ def predict():
 
 
 if __name__ == "__main__":
+
     app.run(host="0.0.0.0", port=10000, debug=True)
