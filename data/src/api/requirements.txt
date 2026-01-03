@@ -1,0 +1,10 @@
+flask
+gunicorn
+tensorflow
+numpy
+opencv-python-headless
+pydub
+ffmpeg-python
+librosa
+scikit-learn
+pandas
