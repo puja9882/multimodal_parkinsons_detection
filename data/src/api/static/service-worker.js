@@ -1,10 +1,10 @@
 const CACHE_NAME = 'pd-screening-cache-v3';
 
 const urlsToCache = [
-  '/',              // home
-  '/screening',
-  '/report',
-  '/offline',
+  '/',                     // app shell
+  '/screening.html',
+  '/about.html',
+  '/report.html',
 
   // static files
   '/static/style.css',
@@ -28,45 +28,33 @@ self.addEventListener('install', (event) => {
 /* ACTIVATE */
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) =>
-      Promise.all(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
             return caches.delete(cacheName);
           }
         })
-      )
-    )
+      );
+    })
   );
   self.clients.claim();
 });
 
-/* FETCH */
+/* FETCH → APP SHELL */
 self.addEventListener('fetch', (event) => {
-
-  // ❗ DO NOT CACHE POST REQUESTS (predict, upload, etc.)
-  if (event.request.method !== 'GET') {
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      caches.match('/').then((response) => {
+        return response || fetch(event.request);
+      })
+    );
     return;
   }
 
   event.respondWith(
-    fetch(event.request)
-      .then((networkResponse) => {
-        const responseClone = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseClone);
-        });
-        return networkResponse;
-      })
-      .catch(() => {
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) return cachedResponse;
-
-          // offline fallback
-          if (event.request.destination === 'document') {
-            return caches.match('/offline');
-          }
-        });
-      })
+    caches.match(event.request).then((cached) => {
+      return cached || fetch(event.request);
+    })
   );
 });
