@@ -1,9 +1,9 @@
-const CACHE_NAME = 'pd-screening-cache-v2';
+const CACHE_NAME = 'pd-screening-cache-v3';
 
 const urlsToCache = [
-  '/',                       // home
-  '/screening.html',
-  '/report.html',
+  '/',              // home
+  '/screening',
+  '/report',
   '/offline',
 
   // static files
@@ -17,10 +17,8 @@ const urlsToCache = [
 
 /* INSTALL */
 self.addEventListener('install', (event) => {
-  console.log('[ServiceWorker] Install');
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[ServiceWorker] Caching app shell');
       return cache.addAll(urlsToCache);
     })
   );
@@ -29,28 +27,31 @@ self.addEventListener('install', (event) => {
 
 /* ACTIVATE */
 self.addEventListener('activate', (event) => {
-  console.log('[ServiceWorker] Activate');
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
+    caches.keys().then((cacheNames) =>
+      Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.log('[ServiceWorker] Removing old cache', cacheName);
             return caches.delete(cacheName);
           }
         })
-      );
-    })
+      )
+    )
   );
   self.clients.claim();
 });
 
 /* FETCH */
 self.addEventListener('fetch', (event) => {
+
+  // ❗ DO NOT CACHE POST REQUESTS (predict, upload, etc.)
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
-        // cache new requests
         const responseClone = networkResponse.clone();
         caches.open(CACHE_NAME).then((cache) => {
           cache.put(event.request, responseClone);
@@ -58,11 +59,10 @@ self.addEventListener('fetch', (event) => {
         return networkResponse;
       })
       .catch(() => {
-        // offline → return cached version
-        return caches.match(event.request).then((response) => {
-          if (response) return response;
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) return cachedResponse;
 
-          // offline page for HTML
+          // offline fallback
           if (event.request.destination === 'document') {
             return caches.match('/offline');
           }
