@@ -1,26 +1,33 @@
-const CACHE_NAME = 'pd-screening-cache-v1';
+const CACHE_NAME = 'pd-screening-cache-v2';
+
 const urlsToCache = [
-  '/',  // your homepage
+  '/',                       // home
+  '/screening.html',
+  '/report.html',
+  '/offline',
+
+  // static files
   '/static/style.css',
   '/static/script.js',
+
+  // icons
   '/static/icons/icon-192x192.png',
   '/static/icons/icon-512x512.png'
 ];
 
-// Install event – caching important files
+/* INSTALL */
 self.addEventListener('install', (event) => {
   console.log('[ServiceWorker] Install');
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('[ServiceWorker] Caching app shell');
-        return cache.addAll(urlsToCache);
-      })
+    caches.open(CACHE_NAME).then((cache) => {
+      console.log('[ServiceWorker] Caching app shell');
+      return cache.addAll(urlsToCache);
+    })
   );
   self.skipWaiting();
 });
 
-// Activate event – clean up old caches
+/* ACTIVATE */
 self.addEventListener('activate', (event) => {
   console.log('[ServiceWorker] Activate');
   event.waitUntil(
@@ -38,34 +45,28 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event – serve cached files if offline
+/* FETCH */
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        if (response) {
-          // Return cached file
-          return response;
-        }
-        // Fetch from network and cache it
-        return fetch(event.request)
-          .then((networkResponse) => {
-            if(!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-              return networkResponse;
-            }
-            const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseClone);
-              });
-            return networkResponse;
-          });
+    fetch(event.request)
+      .then((networkResponse) => {
+        // cache new requests
+        const responseClone = networkResponse.clone();
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, responseClone);
+        });
+        return networkResponse;
       })
       .catch(() => {
-        // Optional: fallback if offline & file not cached
-        if (event.request.destination === 'document') {
-          return caches.match('/');
-        }
+        // offline → return cached version
+        return caches.match(event.request).then((response) => {
+          if (response) return response;
+
+          // offline page for HTML
+          if (event.request.destination === 'document') {
+            return caches.match('/offline');
+          }
+        });
       })
   );
 });
