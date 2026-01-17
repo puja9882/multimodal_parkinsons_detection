@@ -52,11 +52,6 @@ def screening():
 def about():
     return render_template("about.html")
 
-@app.route('/offline')
-def offline():
-    return render_template('offline.html')
-
-
 @app.route('/report')
 def report():
     prediction = request.args.get('prediction', 'Not available')
@@ -282,3 +277,4 @@ def predict():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=10000, debug=True)
+
