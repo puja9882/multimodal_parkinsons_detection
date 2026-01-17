@@ -28,6 +28,7 @@ function updateFileStatus(statusId, file) {
 async function predict() {
   const drawingFile = document.querySelector("#drawingInput")?.files[0];
   const voiceFile = document.querySelector("#voiceInput")?.files[0];
+  const name = document.querySelector("#nameInput")?.value.trim();
   const age = document.querySelector("#ageInput")?.value;
   const predictBtn = document.getElementById("predictBtn");
   const resDiv = document.getElementById("result");
@@ -45,6 +46,13 @@ async function predict() {
   predictBtn.innerHTML = "🔄 Analyzing...";
   predictBtn.disabled = true;
   
+  // 🔒 LOCK ALL INPUTS DURING ANALYSIS
+  window.isAnalyzing = true;
+  document.querySelectorAll('#recordBtn, #clearRecordBtn, #spiralCanvas, .draw-btn').forEach(el => {
+    el.style.pointerEvents = 'none';
+    el.style.opacity = '0.5';
+  });
+  
   resDiv.innerHTML = `
     <div style="text-align:center; padding:30px;">
       <div style="font-size:60px; margin-bottom:16px; color:#38bdf8;">🤖</div>
@@ -55,6 +63,7 @@ async function predict() {
   `;
 
   const formData = new FormData();
+  formData.append("name", name);
   formData.append("spiral_img", drawingFile);
   formData.append("voice_wav", voiceFile);
   formData.append("age", age || "");
@@ -80,6 +89,7 @@ async function predict() {
     const friendlyNote = data.risk_text || "This is a research screening tool and not a medical diagnosis.";
 
     const params = new URLSearchParams({
+      name:name,
       prediction: data.prediction || "",
       conf: confPct || "",
       combined: data.combined_score != null ? data.combined_score.toFixed(3) : "",
@@ -139,6 +149,13 @@ async function predict() {
       <div style="font-size:12px; color:#fecaca; margin-top:8px;">${err.message}</div>
     </div>`;
   } finally {
+    // 🔓 UNLOCK ALL INPUTS AFTER RESULT
+    window.isAnalyzing = false;
+    document.querySelectorAll('#recordBtn, #clearRecordBtn, #spiralCanvas, .draw-btn').forEach(el => {
+      el.style.pointerEvents = '';
+      el.style.opacity = '';
+    });
+    
     if (predictBtn) {
       predictBtn.innerHTML = "✅ Analyze Again";
       predictBtn.disabled = false;
@@ -202,6 +219,7 @@ function getPos(e) {
 }
 
 function handlePointerDown(e) {
+  if (window.isAnalyzing) return;  // 🔒 Block during analysis
   e.preventDefault();
   if (!ctx) return;
   const pos = getPos(e);
@@ -211,7 +229,7 @@ function handlePointerDown(e) {
 }
 
 function handlePointerMove(e) {
-  if (!isDrawing || !ctx) return;
+  if (!isDrawing || !ctx || window.isAnalyzing) return;  // 🔒 Block during analysis
   e.preventDefault();
   const pos = getPos(e);
 
@@ -229,12 +247,13 @@ function handlePointerMove(e) {
 }
 
 function handlePointerUp(e) {
-  if (!isDrawing) return;
+  if (!isDrawing || window.isAnalyzing) return;  // 🔒 Block during analysis
   e?.preventDefault();
   isDrawing = false;
 }
 
 function clearCanvas() {
+  if (window.isAnalyzing) return;  // 🔒 Block during analysis
   if (!ctx || !canvas) return;
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -251,6 +270,7 @@ function clearCanvas() {
 }
 
 function useCanvasAsImage() {
+  if (window.isAnalyzing) return;  // 🔒 Block during analysis
   if (!canvas) return;
 
   canvas.toBlob(blob => {
@@ -296,6 +316,7 @@ let mediaRecorder, audioChunks = [], isRecording = false;
 let recordedAudioPreview = null;
 
 async function toggleRecording() {
+  if (window.isAnalyzing) return;  // 🔒 Block during analysis
   const recordBtn = document.getElementById("recordBtn");
   const recordText = document.getElementById("recordText");
   const statusSpan = document.getElementById("recordStatus");
@@ -352,7 +373,6 @@ async function toggleRecording() {
       statusSpan.textContent = "🎤 Recording... speak \"Ahhhh\" continuously";
       recordBtn.classList.add("recording");
       if (clearBtn) clearBtn.style.display = "none";
-      
     } catch (err) {
       console.error('Audio error:', err);
       alert("❌ Microphone access denied. Please allow permission and refresh.");
@@ -370,6 +390,7 @@ async function toggleRecording() {
 }
 
 function clearRecording() {
+  if (window.isAnalyzing) return;  // 🔒 Block during analysis
   const voiceInput = document.querySelector("#voiceInput");
   if (voiceInput) voiceInput.value = "";
   updateFileStatus('voiceStatus', null);
@@ -394,6 +415,26 @@ function clearRecording() {
   if (clearBtn) clearBtn.style.display = "none";
   if (recordBtn) recordBtn.classList.remove("recording");
   if (recordText) recordText.textContent = "🎙️ Start Recording";
-}
 
+  if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/service-worker.js')
+    .then(() => console.log('Service Worker Registered'))
+    .catch(err => console.log('SW registration failed', err));
+  }
+  function updateNetworkStatus() {
+  const status = document.getElementById("netStatus");
+  if (!status) return;
+
+  if (!navigator.onLine) {
+    status.style.display = "block";
+  } else {
+    status.style.display = "none";
+  }
+  }
+
+  window.addEventListener("load", updateNetworkStatus);
+  window.addEventListener("online", updateNetworkStatus);
+  window.addEventListener("offline", updateNetworkStatus);
+
+}
 
