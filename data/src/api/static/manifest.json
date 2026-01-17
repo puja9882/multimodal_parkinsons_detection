@@ -1,10 +1,11 @@
 {
-  "name": "Parkinson's Screening",
+  "name": "Parkinson’s Disease Screening App",
   "short_name": "PD Screening",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#3b82f6",
+  "theme_color": "#1976d2",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "/static/icons/icon-192x192.png",
