@@ -1,6 +1,6 @@
 flask
 gunicorn
-tensorflow
+tensorflow-cpu
 numpy
 opencv-python-headless
 pydub
@@ -9,3 +9,4 @@ librosa
 scikit-learn
 pandas
 psycopg2-binary
+
