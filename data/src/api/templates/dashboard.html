@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+  <style>
+    /* GRID LAYOUT */
+    .grid { display:grid; gap:20px; }
+    .stats { grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); margin-bottom:40px; }
+    .charts { grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); }
+
+    /* CARD STYLE */
+    .card {
+      background:rgba(255,255,255,0.06);
+      backdrop-filter:blur(10px);
+      padding:25px;
+      border-radius:16px;
+      text-align:center;
+      box-shadow:0 6px 20px rgba(0,0,0,0.15);
+      transition:.3s;
+    }
+    .card:hover { transform:translateY(-5px); }
+
+    .value { font-size:34px; font-weight:bold; margin-top:8px; }
+
+    /* HEADER ADJUSTMENTS */
+    .app-header h1 { margin:0; font-size:28px; line-height:1.2; }
+    .app-header p { margin-top:6px; font-size:14px; line-height:1.4; color:#cbd5e1; }
+
+    /* NAV LINKS SMALLER */
+    .nav-links a { font-size:14px; padding:6px 12px; }
+  </style>
+</head>
+
+<body>
+<div class="layout-bg">
+  <div class="bg-orbit"></div>
+
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo-circle"><span class="logo-icon">PD</span></div>
+      <div>
+        <h1>Dashboard</h1>
+        <p>This dashboard provides an overview of all your previous Parkinson’s screening activities!</p>
+      </div>
+    </div>
+
+    <nav class="nav-links">
+      <a href="{{ url_for('home') }}" class="nav-link">Home</a>
+      <a href="{{ url_for('screening') }}" class="nav-link">Screening</a>
+      <a href="/history" class="nav-link">History</a>
+      <a href="/about" class="nav-link">About</a>
+      <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
+    </nav>
+  </header>
+
+  <main style="max-width:1100px;margin:25px auto;padding:0 20px;">
+
+    <!-- Stats -->
+    <div class="grid stats">
+      <div class="card">
+        <div>📊 Total Screenings</div>
+        <div class="value">{{ total }}</div>
+      </div>
+
+      <div class="card">
+        <div>🧠 Parkinson</div>
+        <div class="value" style="color:#ff6b6b">{{ parkinson_count }}</div>
+      </div>
+
+      <div class="card">
+        <div>✅ No Parkinson</div>
+        <div class="value" style="color:#4ade80">{{ normal_count }}</div>
+      </div>
+
+      <div class="card">
+        <div>📈 Avg AI Score</div>
+        <div class="value">{{ avg_score }}</div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid charts">
+      <div class="card">
+        <h3>Detection Ratio</h3>
+        <canvas id="pieChart" style="max-height:250px;"></canvas>
+      </div>
+
+      <div class="card">
+        <h3>Risk Breakdown</h3>
+        <canvas id="riskBarChart" style="max-height:250px;"></canvas>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  // Pie chart
+  new Chart(document.getElementById('pieChart'), {
+    type: 'pie',
+    data: {
+      labels: ['Parkinson', 'No Parkinson'],
+      datasets: [{
+        data: [{{ parkinson_count }}, {{ normal_count }}],
+        backgroundColor: ['#ff6b6b', '#4ade80'],
+        borderWidth: 1
+      }]
+    },
+    options: {
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            padding: 10,
+            color: '#ffffff', 
+            font: { size: 14 }
+          }
+        }
+      }
+    }
+  });
+
+  // Risk Bar Chart
+  new Chart(document.getElementById('riskBarChart'), {
+    type: 'bar',
+    data: {
+      labels: {{ risk_labels | tojson }},
+      datasets: [{
+        label: 'No. of Cases',
+        data: {{ risk_counts | tojson }},
+        backgroundColor: [
+          '#22c55e',  // Low
+          '#f59e0b',  // Moderate
+          '#ef4444'   // High
+        ],
+        borderRadius: 6
+      }]
+    },
+    options: {
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#ffffff' }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { color: '#ffffff' }
+        }
+      }
+    }
+  });
+</script>
+</body>
+</html>

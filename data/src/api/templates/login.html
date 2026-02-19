@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Parkinson’s Disease Screening – Login</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <style>
+        body {
+            margin: 0;
+            font-family: "Segoe UI", sans-serif;
+        }
+
+        .layout-bg {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0f172a, #020617);
+        }
+
+        .panel-modern {
+            width: 100%;
+            max-width: 560px;
+            padding: 46px 40px;
+            border-radius: 28px;
+            background: rgba(15, 23, 42, 0.92);
+            box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+            text-align: center;
+            color: #e5e7eb;
+        }
+
+        h2 {
+            margin: 0 0 8px;
+            font-size: 26px;
+            font-weight: 600;
+        }
+
+        .panel-caption {
+            font-size: 14px;
+            color: #9ca3af;
+            margin-bottom: 22px;
+        }
+
+        .icon-wrap img {
+            width: 170px;
+            border-radius: 18px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        label {
+            display: block;
+            text-align: left;
+            margin: 16px 0 6px;
+            font-size: 14px;
+        }
+
+        .panel-modern input {
+            width: 100%;
+            padding: 14px;
+            border-radius: 14px;
+            font-size: 15px;
+            border: none;
+            outline: none;
+            background: #ffffff !important;
+            color: #000000 !important;
+            caret-color: #000000 !important;
+        }
+
+        .password-wrapper {
+            position: relative;
+        }
+
+        .toggle-eye {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            font-size: 14px;
+            color: #444;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            border-radius: 16px;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .btn-primary {
+            margin-top: 26px;
+            background: #38bdf8;
+            color: #020617;
+            font-weight: 600;
+        }
+
+        .btn-secondary {
+            margin-top: 12px;
+            background: transparent;
+            border: 2px solid #38bdf8;
+            color: #38bdf8;
+        }
+
+        .feedback {
+            background: rgba(239, 68, 68, 0.15);
+            color: #fca5a5;
+            padding: 10px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .hint-text {
+            font-size: 12px;
+            color: #9ca3af;
+            text-align: left;
+            margin-top: 4px;
+        }
+
+        .strength-msg {
+            font-size: 13px;
+            margin-top: 6px;
+            text-align: left;
+        }
+
+        .footer-note {
+            margin-top: 22px;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="layout-bg">
+    <div class="panel-modern">
+
+        <h2>Parkinson’s Disease Screening</h2>
+
+        <p class="panel-caption">
+            AI-based analysis using spiral drawing & voice signals
+        </p>
+
+        <div class="icon-wrap" style="margin: 22px 0;">
+            <img src="{{ url_for('static', filename='icons/icon-512x512.png') }}"
+                 alt="Parkinsons Screening">
+        </div>
+
+        {% if error %}
+            <div class="feedback">
+                {{ error }}
+            </div>
+        {% endif %}
+
+        <!-- LOGIN FORM -->
+        <form method="POST" action="/">
+
+            <label>Username</label>
+            <input type="text" name="username" id="username" required>
+            <div class="hint-text">
+                • Use a unique username you will remember  
+                • Do not share your login details
+            </div>
+
+            <label>Password</label>
+            <div class="password-wrapper">
+                <input type="password" name="password" id="password" required>
+                <span class="toggle-eye" onclick="togglePassword()">👁</span>
+            </div>
+
+            <div class="hint-text">
+                • Minimum 6 characters recommended  
+                • Use letters and numbers for better security
+            </div>
+
+            <div id="strengthMsg" class="strength-msg"></div>
+
+            <button type="submit" class="btn-primary">
+                Login / Register
+            </button>
+        </form>
+
+        <!-- GUEST -->
+        <form method="POST" action="/">
+            <button type="submit" name="guest" class="btn-secondary">
+                Continue as Guest
+            </button>
+        </form>
+
+        <p class="footer-note">
+            Research prototype • Not a medical diagnosis
+        </p>
+
+    </div>
+</div>
+
+<script>
+const passwordInput = document.getElementById("password");
+const strengthMsg = document.getElementById("strengthMsg");
+
+passwordInput.addEventListener("input", function() {
+    const value = passwordInput.value;
+
+    if (value.length === 0) {
+        strengthMsg.textContent = "";
+        return;
+    }
+
+    if (value.length < 6) {
+        strengthMsg.textContent = "Weak password";
+        strengthMsg.style.color = "#f87171";
+    } 
+    else if (value.match(/[A-Za-z]/) && value.match(/[0-9]/)) {
+        strengthMsg.textContent = "Strong password";
+        strengthMsg.style.color = "#4ade80";
+    } 
+    else {
+        strengthMsg.textContent = "Medium password";
+        strengthMsg.style.color = "#facc15";
+    }
+});
+
+function togglePassword() {
+    const pwd = document.getElementById("password");
+    if (pwd.type === "password") {
+        pwd.type = "text";
+    } else {
+        pwd.type = "password";
+    }
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Screening History</title>
+
+  <!-- Use existing global CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body class="layout-bg">
+  <div class="bg-orbit"></div>
+  <div class="bg-particles"></div>
+
+  <!-- SAME HEADER DESIGN -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo-circle">
+        <span class="logo-icon">PD</span>
+      </div>
+      <div class="app-title-block">
+        <h1>Parkinson's Disease Screening</h1>
+        <p class="app-subtitle">Multimodal ML Research Prototype</p>
+      </div>
+    </div>
+
+    <nav class="nav-links">
+      <a href="{{ url_for('home') }}" class="nav-link">Home</a>
+      <a href="{{ url_for('screening') }}" class="nav-link">Screening</a>
+      <a href="{{ url_for('history') }}" class="nav-link nav-active">History</a>
+      <a href="{{ url_for('dashboard') }}" class="nav-link">Dashboard</a>
+      <a href="{{ url_for('about') }}" class="nav-link">About</a>
+      <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
+    </nav>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="app-main" style="
+      display:flex;
+      justify-content:center;
+      align-items:flex-start;
+      padding-top:50px;
+      min-height:80vh;
+  ">
+
+    <section class="panel panel-modern" style="
+        width:90%;
+        max-width:950px;
+    ">
+
+      <h2 style="text-align:center; margin-bottom:30px;">
+        Your Screening History
+      </h2>
+
+      {% if reports|length == 0 %}
+        <p style="text-align:center; font-size:18px;">
+          No screening history available yet.
+        </p>
+      {% endif %}
+
+      <!-- HISTORY CARDS -->
+      <div style="
+          display:flex;
+          flex-direction:column;
+          gap:20px;
+      ">
+
+        {% for row in reports %}
+        <div style="
+            padding:20px;
+            border-radius:14px;
+            background:rgba(255,255,255,0.06);
+            backdrop-filter: blur(8px);
+            border:1px solid rgba(255,255,255,0.1);
+        ">
+
+          <div style="
+              display:flex;
+              justify-content:space-between;
+              flex-wrap:wrap;
+              gap:25px;
+          ">
+
+            <!-- Left Section -->
+            <div>
+              <p><strong>Date:</strong> {{ row[1] }}</p>
+              <p><strong>Name:</strong> {{ row[2] }}</p>
+              <p><strong>Age:</strong> {{ row[3] }}</p>
+            </div>
+
+            <!-- Middle Section -->
+            <div>
+              <p><strong>Prediction:</strong> {{ row[4] }}</p>
+              <p><strong>Score:</strong> {{ "%.3f"|format(row[5]) }}</p>
+              <p><strong>Severity:</strong> {{ row[9] }}</p>
+            </div>
+
+            <!-- Right Section -->
+            <div style="display:flex; align-items:center;">
+              <a class="btn btn-primary"
+                 href="{{ url_for('report',
+                      prediction=row[4],
+                      conf=(row[6]*100)|int,
+                      combined="%.3f"|format(row[5]),
+                      draw=(row[7]*100)|int,
+                      voice=(row[8]*100)|int,
+                      age=row[3],
+                      name=row[2]
+                 ) }}">
+                 View Report
+              </a>
+            </div>
+
+          </div>
+        </div>
+        {% endfor %}
+
+      </div>
+
+    </section>
+  </main>
+
+</body>
+</html>
