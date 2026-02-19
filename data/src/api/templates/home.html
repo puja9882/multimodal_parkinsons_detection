@@ -19,13 +19,13 @@
       bottom: 20px;
       right: 20px;
       padding: 12px 18px;
-      background: #3b82f6;  /* keeps original accent color */
+      background: #3b82f6;
       color: white;
       border-radius: 50px;
       box-shadow: 0 5px 15px rgba(0,0,0,0.2);
       cursor: pointer;
       font-weight: bold;
-      display: none; /* hidden initially */
+      display: none;
       z-index: 1000;
     }
     #installBtn:hover {
@@ -33,6 +33,7 @@
     }
   </style>
 </head>
+
 <body class="layout-bg">
   <div class="bg-orbit"></div>
   <div class="bg-particles"></div>
@@ -44,23 +45,37 @@
       </div>
       <div class="app-title-block">
         <h1>Parkinson's Disease Screening</h1>
-        <p class="app-subtitle">Multimodal machine learning research prototype</p>
+        <p class="app-subtitle">Multimodal ML Research Prototype</p>
       </div>
     </div>
+
     <nav class="nav-links">
       <a href="{{ url_for('home') }}" class="nav-link nav-active">Home</a>
       <a href="{{ url_for('screening') }}" class="nav-link">Screening</a>
+      <a href="{{ url_for('history') }}" class="nav-link">History</a>
+      <a href="/dashboard" class="nav-link">Dashboard</a>
       <a href="{{ url_for('about') }}" class="nav-link">About</a>
+      <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
     </nav>
   </header>
 
   <main class="home-main full-height-hero">
     <section class="home-hero hero-centered">
       <div class="hero-text hero-text-enhanced">
-        <div class="hero-badge">🧠 Research Prototype</div>
+
+        <!-- ✅ Greeting -->
+        <div class="hero-badge">
+          👋 Welcome,
+          {% if session.get("user") == "guest" %}
+            Guest
+          {% else %}
+            {{ session.get("username") }}
+          {% endif %}
+        </div>
 
         <h2 class="hero-title">
-          Check Parkinson's Signs<br>With Drawing & Voice
+          Check Parkinson's Signs<br>
+          With Drawing & Voice
         </h2>
 
         <p class="hero-desc">
@@ -113,18 +128,9 @@
           </div>
         </div>
 
-        <div class="hero-visual-info">
-          <span class="hero-tag">What this tool looks at</span>
-          <h3>Spiral Drawing and Voice Pattern</h3>
-          <p>Both signals are combined into one easy-to-read score.</p>
-        </div>
       </div>
     </section>
   </main>
-
-  <footer class="app-footer">
-    <span>Parkinson's Multimodal ML · Diploma Research Prototype 2025</span>
-  </footer>
 
   <!-- Floating Install Button -->
   <div id="installBtn">📥 Install App</div>
@@ -132,16 +138,14 @@
   <script src="{{ url_for('static', filename='script.js') }}"></script>
 
   <script>
-    // Register service worker
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
+      window.addEventListener('load', function () {
         navigator.serviceWorker.register('{{ url_for("static", filename="service-worker.js") }}')
           .then(reg => console.log('Service Worker registered', reg))
           .catch(err => console.log('Service Worker registration failed:', err));
       });
     }
 
-    // PWA install prompt
     let deferredPrompt;
     const installBtn = document.getElementById('installBtn');
 
@@ -153,9 +157,9 @@
 
     installBtn.addEventListener('click', async () => {
       installBtn.style.display = 'none';
-      if(deferredPrompt){
+      if (deferredPrompt) {
         deferredPrompt.prompt();
-        const choiceResult = await deferredPrompt.userChoice;
+        await deferredPrompt.userChoice;
         deferredPrompt = null;
       }
     });
