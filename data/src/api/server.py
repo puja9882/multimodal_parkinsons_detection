@@ -2,11 +2,15 @@ import os
 import sys
 import tempfile
 import shutil
+from flask.helpers import url_for
 import numpy as np
 import pandas as pd
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect, session
+import sqlite3
+import psycopg2
+from collections import Counter
 from pydub import AudioSegment
-import hashlib
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # ---------- FFmpeg handling ----------
 ffmpeg_path = shutil.which("ffmpeg")
@@ -24,6 +28,31 @@ app = Flask(
     template_folder=os.path.join(CURRENT_DIR, "templates"),
     static_folder=os.path.join(CURRENT_DIR, "static")
 )
+app.secret_key = "simple_secret_key"
+
+# ---------- DATABASE ----------
+# ---------- DATABASE ----------
+from urllib.parse import urlparse
+
+def get_db():
+    DATABASE_URL = os.environ.get("DATABASE_URL")
+
+    # If running on Render (PostgreSQL)
+    if DATABASE_URL:
+        url = urlparse(DATABASE_URL)
+        conn = psycopg2.connect(
+            dbname=url.path[1:],
+            user=url.username,
+            password=url.password,
+            host=url.hostname,
+            port=url.port
+        )
+        return conn
+
+    # If running locally (SQLite)
+    else:
+        return sqlite3.connect(os.path.join(CURRENT_DIR, "database.db"))
+
 
 # ---------- GLOBAL STATS ----------
 TOTAL_TESTS = 0
@@ -31,7 +60,6 @@ TOTAL_PARKINSON = 0
 TOTAL_NO_PARKINSON = 0
 
 def cleanup_files(paths):
-    """Safe cleanup helper"""
     for path in paths:
         try:
             if os.path.exists(path):
@@ -39,43 +67,113 @@ def cleanup_files(paths):
         except Exception:
             pass
 
-# ---------- PAGE ROUTES ----------
-@app.route("/")
+# ================= LOGIN =================
+@app.route("/", methods=["GET", "POST"])
+def login():
+    error = None
+
+    if request.method == "POST":
+
+        if "guest" in request.form:
+            session.clear()
+            session["user"] = "guest"
+            return redirect("/home")
+
+        username = request.form["username"].strip()
+        password = request.form["password"].strip()
+
+        db = get_db()
+        cur = db.cursor()
+
+        cur.execute("SELECT id, password FROM users WHERE username=?", (username,))
+        user = cur.fetchone()
+
+        if user:
+            if check_password_hash(user[1], password):
+                session.clear()
+                session["user_id"] = user[0]
+                session["username"] = username
+                db.close()
+                return redirect("/home")
+            else:
+                error = "Incorrect password."
+        else:
+            hashed_pw = generate_password_hash(password)
+
+            try:
+                cur.execute(
+                    "INSERT INTO users (username, password) VALUES (?, ?)",
+                    (username, hashed_pw)
+                )
+                db.commit()
+
+                cur.execute("SELECT id FROM users WHERE username=?", (username,))
+                new_user = cur.fetchone()
+
+                session.clear()
+                session["user_id"] = new_user[0]
+                session["username"] = username
+                db.close()
+                return redirect("/home")
+            except sqlite3.IntegrityError:
+                error = "Username already exists."
+                db.close()
+
+    return render_template("login.html", error=error)
+
+# ================= HOME =================
+@app.route("/home")
 def home():
+    if "user_id" not in session and session.get("user") != "guest":
+        return redirect("/")
     return render_template("home.html")
 
+# ================= SCREENING =================
 @app.route("/screening")
 def screening():
+    if "user_id" not in session and session.get("user") != "guest":
+        return redirect("/")
     return render_template("screening.html")
 
+# ================= ABOUT =================
 @app.route("/about")
 def about():
     return render_template("about.html")
 
-@app.route('/report')
+# ================= REPORT =================
+@app.route("/report")
 def report():
-    prediction = request.args.get('prediction', 'Not available')
-    conf_raw = float(request.args.get('conf', 0))
-    conf_pct = int(conf_raw)
 
-    combined = request.args.get('combined', '0.000')
+    prediction = request.args.get("prediction", "Not available")
+    conf_pct = int(float(request.args.get("conf", 0)))
+    combined = request.args.get("combined", "0.000")
+    draw_pct = request.args.get("draw", "0")
+    voice_pct = request.args.get("voice", "0")
+    
 
-    draw_pct = request.args.get('draw', '0')
-    voice_pct = request.args.get('voice', '0')
+    # ✅ AUTO GET NAME FROM SESSION (No need JS change)
+    name = request.args.get("name", "Not provided")
 
-    name = request.args.get('name', 'Not provided')
-    age = request.args.get('age', '')
+    # ✅ AGE from URL or default
+    age = request.args.get("age", "Not provided")
 
-    risk_text = request.args.get('risk_text', '')
-    severity = request.args.get('severity', '')
-    caution = request.args.get('caution', '')
+    combined_float = float(combined)
+    if prediction == "Parkinson":
+        risk_text = "The AI detected motor and/or voice patterns associated with Parkinson-like characteristics. Further neurological evaluation is recommended."
+    else:
+        risk_text = "The AI did not detect significant Parkinson-like patterns in this screening session."
 
-    total_tests = request.args.get('total_tests', '0')
-    total_parkinson = request.args.get('total_parkinson', '0')
-    total_no_parkinson = request.args.get('total_no_parkinson', '0')
+
+
+    if combined_float < 0.30:
+        severity = "Low Risk"
+    elif combined_float < 0.60:
+        severity = "Moderate Risk"
+    else:
+        severity = "High Risk"
 
     return render_template(
-        'report.html',
+        "report.html",
         prediction=prediction,
         conf_pct=conf_pct,
         combined=combined,
@@ -83,198 +181,203 @@ def report():
         voice_pct=voice_pct,
         name=name,
         age=age,
-        risk_text=risk_text,
         severity=severity,
-        caution=caution,
-        total_tests=total_tests,
-        total_parkinson=total_parkinson,
-        total_no_parkinson=total_no_parkinson
+        risk_text=risk_text
     )
 
-
-# ---------- API ROUTE ----------
+# ================= PREDICTION =================
 @app.route("/predict", methods=["POST"])
 def predict():
     global TOTAL_TESTS, TOTAL_PARKINSON, TOTAL_NO_PARKINSON
 
-    name = request.form.get("name", "Anonymous")  # NEW: Capture name
-    age = request.form.get("age")
+    if "user_id" not in session and session.get("user") != "guest":
+        return jsonify({"error": "User not logged in"}), 401
+
+
     temp_files = []
 
     try:
-        # ------------ IMAGE ------------
         spiral_file = request.files.get("spiral_img")
-        if not spiral_file:
-            return jsonify({"error": "spiral_img is required"}), 400
-
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
-            spiral_path = tmp_img.name
-            temp_files.append(spiral_path)
-            spiral_file.save(spiral_path)
-
-        # ------------ VOICE (SIMPLE & BULLETPROOF) ------------
         voice_file = request.files.get("voice_wav")
-        if not voice_file:
-            cleanup_files(temp_files)
-            return jsonify({"error": "voice_wav is required"}), 400
+        name = request.form.get("name", "Not provided")
+        age = request.form.get("age", "Not provided")
 
-        original_name = voice_file.filename or "voice_input"
-        ext = os.path.splitext(original_name)[1].lower()
+        if not spiral_file or not voice_file:
+            return jsonify({"error": "Missing input"}), 400
 
-        print(f"🎤 Received: {original_name} ({voice_file.content_length} bytes)")
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as img:
+            spiral_path = img.name
+            spiral_file.save(spiral_path)
+            temp_files.append(spiral_path)
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp_voice:
-            raw_voice_path = tmp_voice.name
-            temp_files.append(raw_voice_path)
-            voice_file.save(raw_voice_path)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav:
+            voice_path = wav.name
+            voice_file.save(voice_path)
+            temp_files.append(voice_path)
 
-        # Simple WAV conversion (your multimodal_infer.py handles validation)
-        final_voice_path = raw_voice_path
-        if ext == ".webm":
-            wav_temp = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
-            wav_path = wav_temp.name
-            temp_files.append(wav_path)
-            wav_temp.close()
-            
-            try:
-                audio = AudioSegment.from_file(raw_voice_path, format="webm")
-                if len(audio) < 1000:
-                    cleanup_files(temp_files)
-                    return jsonify({"error": "Audio too short (<1s)"}), 400
-                audio.export(wav_path, format="wav")
-                final_voice_path = wav_path
-                print(f"✅ WebM → WAV: {len(audio)}ms")
-            except Exception as e:
-                cleanup_files(temp_files)
-                return jsonify({"error": f"Audio conversion failed: {str(e)}"}), 500
+        d_prob = float(drawing_model.predict(
+            get_drawing_input(spiral_path), verbose=0
+        ).flatten()[0])
 
-        # ------------ DRAWING INFERENCE ------------
-        print("🎨 Processing drawing...")
-        d_in = get_drawing_input(spiral_path)
-        d_prob = float(drawing_model.predict(d_in, verbose=0).flatten()[0])
+        feature_df = extract_voice_from_wav(voice_path, 65.0)
+        v_prob = float(voice_model.predict_proba(
+            voice_scaler.transform(feature_df)
+        )[0][1])
 
-        # ------------ VOICE INFERENCE ------------
-        print("🎤 Processing voice...")
-        age_val = float(age) if age else 65.0
-        feature_df = extract_voice_from_wav(final_voice_path, age_val)
-        
-        print("\n=== 🔥 ALL 19 VOICE FEATURES (age=" + str(age_val) + ") ===")
-        for col in feature_df.columns:
-            val = feature_df[col].iloc[0]
-            print(f"{col:12}: {val:8.4f}")
-        print("================================\n")
+        final_score = 0.55 * d_prob + 0.45 * v_prob
+        confidence = abs(final_score - 0.5) * 2
+        prediction = "Parkinson" if final_score >= 0.48 else "No Parkinson"
 
-        v_scaled = voice_scaler.transform(feature_df)
-        if hasattr(voice_model, "predict_proba"):
-            v_prob_raw = float(voice_model.predict_proba(v_scaled)[0][1])
-        else:
-            v_prob_raw = float(voice_model.predict(v_scaled)[0])
-
-        print(f"🎤 Model raw prediction: {v_prob_raw:.3f}")
-
-        # ------------ FIXED 2-TIER CALIBRATION (RPDE <0.55 = Healthy) ------------
-        jitter_pct = float(feature_df["Jitter(%)"].iloc[0])
-        hnr = float(feature_df["HNR"].iloc[0])
-        rpde = float(feature_df["RPDE"].iloc[0])
-
-        # Simple quality (0-1 scale)
-        audio_duration = len(AudioSegment.from_file(final_voice_path)) / 1000.0
-        quality = min(1.0, audio_duration / 10.0)
-
-        print(f"🎤 Quality: {quality:.2f} | Jitter:{jitter_pct:.4f} | HNR:{hnr:.1f} | RPDE:{rpde:.3f}")
-
-        # HEALTHY: RPDE <0.55 (UCI standard for healthy)
-        if jitter_pct < 0.015 and hnr > 17 and rpde < 0.61:
-            v_prob_calibrated = max(0.15, v_prob_raw * 0.25)  # Cap at 25% max
-            print(f"✅ HEALTHY: {v_prob_calibrated:.1%} (was {v_prob_raw:.1%})")
-        else:
-            v_prob_calibrated = v_prob_raw  # PD-like - trust model
-            print(f"🔴 PD-like: {v_prob_calibrated:.1%}")
-
-        v_prob_display = v_prob_calibrated
-
-        # ------------ 55/45 WEIGHTING ------------
-        draw_weight = 0.55
-        voice_weight = 0.45
-        final = draw_weight * d_prob + voice_weight * v_prob_calibrated
-        
-        confidence = abs(final - 0.5) * 2
-        prediction_raw = "Parkinson" if final >= 0.48 else "No Parkinson"
-
-        # ------------ RISK TEXT ------------
-        if prediction_raw == "Parkinson":
-            if final < 0.55:
-                risk_text = "Mild Parkinson-like patterns detected. Consult neurologist."
-                severity_label = "Low-Moderate risk"
-            elif final < 0.70:
-                risk_text = "Moderate Parkinson patterns detected. Medical evaluation recommended."
-                severity_label = "Moderate risk"
-            else:
-                risk_text = "Strong Parkinson-like patterns. Urgent consultation needed."
-                severity_label = "High risk"
-        else:
-            if final < 0.30:
-                risk_text = "Very low chance of Parkinson features. Continue monitoring."
-                severity_label = "Very low risk"
-            elif final < 0.45:
-                risk_text = "No significant Parkinson patterns. Healthy result."
-                severity_label = "Low risk"
-            else:
-                risk_text = "Low Parkinson-like features. Monitor if symptoms appear."
-                severity_label = "Low risk"
-
-        # Update stats
         TOTAL_TESTS += 1
-        if prediction_raw == "Parkinson":
-            TOTAL_PARKINSON += 1
-        else:
-            TOTAL_NO_PARKINSON += 1
+        TOTAL_PARKINSON += prediction == "Parkinson"
+        TOTAL_NO_PARKINSON += prediction == "No Parkinson"
 
-        # Age caution
-        caution = None
-        if age:
-            try:
-                a = float(age)
-                if a < 11 or a > 75:
-                    caution = f"Age {a}: Model less accurate outside 11-75 years."
-            except:
-                pass
+        # ================= SAVE TO DATABASE =================
+        
+        if session.get("user") != "guest":
+            db = get_db()
+            cur = db.cursor()
 
-        print("=== FINAL RESULT ===")
-        print(f"Drawing: {d_prob:.1%} | Voice: {v_prob_display:.1%} | Final: {final:.3f}")
-        print("====================")
+            if final_score < 0.30:
+                severity = "Low Risk"
+            elif final_score < 0.60:
+                severity = "Moderate Risk"
+            else:
+                severity = "High Risk"
+
+            cur.execute("""
+                INSERT INTO reports (
+                    user_id, name, age, prediction,
+                    combined_score, confidence,
+                    drawing_prob, voice_prob,
+                    risk_text, severity, caution, test_date
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            """, (
+                session["user_id"],
+                name,
+                age,
+                prediction,
+                final_score,
+                confidence,
+                d_prob,
+                v_prob,
+                "Auto generated screening result",
+                severity,
+                "Consult neurologist if high risk"
+            ))
+
+            db.commit()
+            db.close()
+        # =====================================================
 
         return jsonify({
-            "prediction": prediction_raw,
-            "combined_score": final,
+            "prediction": prediction,
+            "combined_score": final_score,
             "confidence": confidence,
             "drawing_prob": d_prob,
-            "voice_prob": v_prob_display,
-            "name": name,                    
-            "age": age or "",
-            "caution": caution,
-            "risk_text": risk_text,
-            "severity_label": severity_label,
-            "total_tests": TOTAL_TESTS,
-            "total_parkinson": TOTAL_PARKINSON,
-            "total_no_parkinson": TOTAL_NO_PARKINSON,
-            "voice_features_sample": {
-                "Jitter(%)": jitter_pct,
-                "HNR": hnr,
-                "RPDE": rpde,
-                "Quality": quality
-            }
+            "voice_prob": v_prob,
+            "age": age
         })
-
-    except Exception as e:
-        print(f"❌ ERROR: {e}")
-        cleanup_files(temp_files)
-        return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
 
     finally:
         cleanup_files(temp_files)
 
+        
+# ================= HISTORY =================
+@app.route("/history")
+def history():
+
+    if "user_id" not in session:
+        return redirect("/")
+
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("""
+         SELECT id, test_date, name, age, prediction,
+               combined_score, confidence,
+               drawing_prob, voice_prob, severity
+        FROM reports
+        WHERE user_id = ?
+        ORDER BY id DESC
+    """, (session["user_id"],))
+
+    reports = cur.fetchall()
+    db.close()
+
+    return render_template("history.html", reports=reports)
+
+# ================= DASHBOARD =================
+@app.route("/dashboard")
+def dashboard():
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    conn = get_db()
+    cur = conn.cursor()
+
+
+    user_id = session["user_id"]
+
+    # Total screenings
+    cur.execute("SELECT COUNT(*) FROM reports WHERE user_id=?", (user_id,))
+    total = cur.fetchone()[0]
+
+    # Parkinson count
+    cur.execute("SELECT COUNT(*) FROM reports WHERE user_id=? AND prediction='Parkinson'", (user_id,))
+    parkinson_count = cur.fetchone()[0]
+
+    # No Parkinson count
+    cur.execute("SELECT COUNT(*) FROM reports WHERE user_id=? AND prediction='No Parkinson'", (user_id,))
+    normal_count = cur.fetchone()[0]
+    
+    cur.execute("SELECT test_date FROM reports WHERE user_id=? AND prediction='No Parkinson'", (user_id,))
+    trend_dates = cur.fetchone()[0]
+    
+
+    # Average score
+    cur.execute("SELECT AVG(combined_score) FROM reports WHERE user_id=?", (user_id,))
+    avg_score = cur.fetchone()[0]
+    avg_score = round(avg_score, 3) if avg_score else 0
+
+    # Risk distribution
+    cur.execute("""
+        SELECT severity, COUNT(*)
+        FROM reports
+        WHERE user_id=?
+        GROUP BY severity
+    """, (user_id,))
+    risk_data = cur.fetchall()
+
+    conn.close()
+
+    # Prepare chart data
+    risk_labels = [row[0] for row in risk_data]
+    risk_counts = [row[1] for row in risk_data]
+    trend_dates = [row[0][0] for row in risk_data]
+    print(risk_data)
+    trend_values = []
+    return render_template("dashboard.html",
+                           total=total,
+                           parkinson_count=parkinson_count,
+                           normal_count=normal_count,
+                           avg_score=avg_score,
+                           risk_labels=risk_labels,
+                           risk_counts=risk_counts,
+                           trend_dates=trend_dates,
+                           trend_values=trend_values
+                           ) 
+
+
+
+# ================= LOGOUT =================
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/")
+
+# ================= RUN =================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=10000, debug=True)
-
+    app.run(host="0.0.0.0", port=port, debug=True)
