@@ -8,3 +8,4 @@ ffmpeg-python
 librosa
 scikit-learn
 pandas
+psycopg2-binary
