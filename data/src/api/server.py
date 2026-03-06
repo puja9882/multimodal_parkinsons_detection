@@ -1,4 +1,6 @@
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # 0=all logs, 1=filter INFO, 2=filter WARNING, 3=filter ERROR
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # Force CPU-only
 import sys
 import tempfile
 import shutil
@@ -381,4 +383,5 @@ def logout():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
