@@ -13,7 +13,7 @@ VOICE_MODEL_PATH   = os.path.join(BASE_DIR, "models", "voice_model.pkl")
 VOICE_SCALER_PATH  = os.path.join(BASE_DIR, "models", "voice_scaler.pkl")
 
 print("🔄 Loading models...")
-drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False, safe_mode=False)
+drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False)
 voice_model = joblib.load(VOICE_MODEL_PATH)
 voice_scaler = joblib.load(VOICE_SCALER_PATH)
 
@@ -107,6 +107,7 @@ if __name__ == "__main__":
     v_prob = float(voice_model.predict_proba(v_scaled)[0][1])
     final = 0.55 * d_prob + 0.45 * v_prob
     print(f"🎯 Drawing:{d_prob:.1%} Voice:{v_prob:.1%} Final:{final:.3f}")
+
 
 
 
