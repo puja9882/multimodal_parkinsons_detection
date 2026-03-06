@@ -8,33 +8,20 @@ import cv2
 from tensorflow.keras.preprocessing.image import img_to_array
 
 print("🔄 Loading models...")
-try:
-    # Try legacy keras format first
-    drawing_model = tf.keras.models.load_model(
-        DRAWING_MODEL_PATH, 
-        compile=False
-    )
-except:
-    # Fallback: patch InputLayer to accept batch_shape
-    from keras.engine.input_layer import InputLayer as KerasInputLayer
-    
-    class CompatibleInputLayer(KerasInputLayer):
-        def __init__(self, **kwargs):
-            # Remove batch_shape, convert to input_shape
-            if 'batch_shape' in kwargs:
-                batch_shape = kwargs.pop('batch_shape')
-                kwargs['input_shape'] = batch_shape[1:]
-            super().__init__(**kwargs)
-    
-    drawing_model = tf.keras.models.load_model(
-        DRAWING_MODEL_PATH, 
-        compile=False,
-        custom_objects={'InputLayer': CompatibleInputLayer}
-    )
 
+# Monkey patch InputLayer to accept batch_shape (TF 2.9 -> 2.12 fix)
+original_init = tf.keras.layers.InputLayer.__init__
+
+def patched_init(self, **kwargs):
+    if 'batch_shape' in kwargs:
+        kwargs['input_shape'] = kwargs.pop('batch_shape')[1:]
+    original_init(self, **kwargs)
+
+tf.keras.layers.InputLayer.__init__ = patched_init
+
+drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False)
 voice_model = joblib.load(VOICE_MODEL_PATH)
 voice_scaler = joblib.load(VOICE_SCALER_PATH)
-
 
 tf.keras.backend.clear_session()
 print("🔄 Loading models...")
@@ -133,6 +120,7 @@ if __name__ == "__main__":
     v_prob = float(voice_model.predict_proba(v_scaled)[0][1])
     final = 0.55 * d_prob + 0.45 * v_prob
     print(f"🎯 Drawing:{d_prob:.1%} Voice:{v_prob:.1%} Final:{final:.3f}")
+
 
 
 
