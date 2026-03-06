@@ -9,26 +9,24 @@ from tensorflow.keras.preprocessing.image import img_to_array
 
 print("🔄 Loading models...")
 
-# Monkey patch InputLayer to accept batch_shape (TF 2.9 -> 2.12 fix)
-original_init = tf.keras.layers.InputLayer.__init__
+# CRITICAL: Patch InputLayer BEFORE any model loading
+import tensorflow.keras.layers as layers
+original_from_config = layers.InputLayer.from_config
 
-def patched_init(self, **kwargs):
-    if 'batch_shape' in kwargs:
-        kwargs['input_shape'] = kwargs.pop('batch_shape')[1:]
-    original_init(self, **kwargs)
+def patched_from_config(cls, config):
+    if 'batch_shape' in config:
+        # Convert batch_shape to input_shape for TF 2.12 compatibility
+        config = config.copy()
+        config['input_shape'] = config.pop('batch_shape')[1:]
+    return original_from_config(cls, config)
 
-tf.keras.layers.InputLayer.__init__ = patched_init
+layers.InputLayer.from_config = classmethod(patched_from_config)
 
 drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False)
 voice_model = joblib.load(VOICE_MODEL_PATH)
 voice_scaler = joblib.load(VOICE_SCALER_PATH)
 
-tf.keras.backend.clear_session()
-print("🔄 Loading models...")
-drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False)
-voice_model = joblib.load(VOICE_MODEL_PATH)
-voice_scaler = joblib.load(VOICE_SCALER_PATH)
-
+print("✅ Models loaded!")
 
 # 🔥 AUTO-DETECT EXACT FEATURES
 VOICE_FEATURES = getattr(voice_scaler, 'feature_names_in_', None)
@@ -120,6 +118,7 @@ if __name__ == "__main__":
     v_prob = float(voice_model.predict_proba(v_scaled)[0][1])
     final = 0.55 * d_prob + 0.45 * v_prob
     print(f"🎯 Drawing:{d_prob:.1%} Voice:{v_prob:.1%} Final:{final:.3f}")
+
 
 
 
