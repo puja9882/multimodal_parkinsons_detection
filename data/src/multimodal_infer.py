@@ -7,18 +7,6 @@ import tensorflow as tf
 import cv2
 from tensorflow.keras.preprocessing.image import img_to_array
 
-import tensorflow.keras.layers as layers
-
-# InputLayer.from_config takes ONLY config (not cls)
-original_from_config = layers.InputLayer.from_config
-def patched_from_config(config):
-    config = config.copy()
-    if 'batch_shape' in config:
-        config['input_shape'] = config.pop('batch_shape')[1:]
-    return original_from_config(config)
-
-layers.InputLayer.from_config = patched_from_config
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DRAWING_MODEL_PATH = os.path.join(BASE_DIR, "models", "drawing_model_final.h5")
 VOICE_MODEL_PATH   = os.path.join(BASE_DIR, "models", "voice_model.pkl")
@@ -127,6 +115,7 @@ if __name__ == "__main__":
     v_prob = float(voice_model.predict_proba(v_scaled)[0][1])
     final = 0.55 * d_prob + 0.45 * v_prob
     print(f"🎯 Drawing:{d_prob:.1%} Voice:{v_prob:.1%} Final:{final:.3f}")
+
 
 
 
