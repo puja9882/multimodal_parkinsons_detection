@@ -7,25 +7,27 @@ import tensorflow as tf
 import cv2
 from tensorflow.keras.preprocessing.image import img_to_array
 
-print("🔄 Loading models...")
-import tensorflow.keras.layers as layers
 import tensorflow.keras.layers as layers
 
-# Fix InputLayer.from_config signature (takes cls, config)
-original_from_config = layers.InputLayer.from_config
+# CORRECT from_config patch - takes (cls, config)
 def patched_from_config(cls, config):
     config = config.copy()
     if 'batch_shape' in config:
         config['input_shape'] = config.pop('batch_shape')[1:]
-    return original_from_config(cls, config)
+    return layers.InputLayer.from_config(cls, config)
 
-layers.InputLayer.from_config = patched_from_config  # No classmethod needed
+layers.InputLayer.from_config = patched_from_config
 
-# NOW define paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DRAWING_MODEL_PATH = os.path.join(BASE_DIR, "models", "drawing_model_final.h5")
 VOICE_MODEL_PATH   = os.path.join(BASE_DIR, "models", "voice_model.pkl")
 VOICE_SCALER_PATH  = os.path.join(BASE_DIR, "models", "voice_scaler.pkl")
+
+print("🔄 Loading models...")
+drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False)
+voice_model = joblib.load(VOICE_MODEL_PATH)
+voice_scaler = joblib.load(VOICE_SCALER_PATH)
+
 
 print("🔄 Loading models...")
 drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False)
@@ -123,6 +125,7 @@ if __name__ == "__main__":
     v_prob = float(voice_model.predict_proba(v_scaled)[0][1])
     final = 0.55 * d_prob + 0.45 * v_prob
     print(f"🎯 Drawing:{d_prob:.1%} Voice:{v_prob:.1%} Final:{final:.3f}")
+
 
 
 
