@@ -23,7 +23,9 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(CURRENT_DIR)
 sys.path.append(PARENT_DIR)
 
-from multimodal_infer import *
+from multimodal_infer import get_drawing_input, extract_voice_from_wav
+import joblib
+import tensorflow as tf
 
 app = Flask(
     __name__,
@@ -31,6 +33,28 @@ app = Flask(
     static_folder=os.path.join(CURRENT_DIR, "static")
 )
 app.secret_key = "simple_secret_key"
+# ---------- MODEL LOADING ----------
+drawing_model = None
+voice_model = None
+voice_scaler = None
+
+def load_models():
+    global drawing_model, voice_model, voice_scaler
+
+    if drawing_model is None:
+        print("Loading AI models...")
+
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        DRAWING_MODEL_PATH = os.path.join(BASE_DIR, "models", "drawing_model_final.h5")
+        VOICE_MODEL_PATH = os.path.join(BASE_DIR, "models", "voice_model.pkl")
+        VOICE_SCALER_PATH = os.path.join(BASE_DIR, "models", "voice_scaler.pkl")
+
+        drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False)
+        voice_model = joblib.load(VOICE_MODEL_PATH)
+        voice_scaler = joblib.load(VOICE_SCALER_PATH)
+
+        print("Models loaded successfully.")
+
 
 # ---------- DATABASE ----------
 # ---------- DATABASE ----------
@@ -190,6 +214,7 @@ def report():
 # ================= PREDICTION =================
 @app.route("/predict", methods=["POST"])
 def predict():
+    load_models()
     global TOTAL_TESTS, TOTAL_PARKINSON, TOTAL_NO_PARKINSON
 
     if "user_id" not in session and session.get("user") != "guest":
@@ -383,5 +408,6 @@ def logout():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
 
