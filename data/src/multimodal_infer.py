@@ -9,12 +9,13 @@ from tensorflow.keras.preprocessing.image import img_to_array
 
 import tensorflow.keras.layers as layers
 
-# CORRECT from_config patch - takes (cls, config)
-def patched_from_config(cls, config):
+# InputLayer.from_config takes ONLY config (not cls)
+original_from_config = layers.InputLayer.from_config
+def patched_from_config(config):
     config = config.copy()
     if 'batch_shape' in config:
         config['input_shape'] = config.pop('batch_shape')[1:]
-    return layers.InputLayer.from_config(cls, config)
+    return original_from_config(config)
 
 layers.InputLayer.from_config = patched_from_config
 
@@ -27,6 +28,7 @@ print("🔄 Loading models...")
 drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False)
 voice_model = joblib.load(VOICE_MODEL_PATH)
 voice_scaler = joblib.load(VOICE_SCALER_PATH)
+
 
 
 print("🔄 Loading models...")
@@ -125,6 +127,7 @@ if __name__ == "__main__":
     v_prob = float(voice_model.predict_proba(v_scaled)[0][1])
     final = 0.55 * d_prob + 0.45 * v_prob
     print(f"🎯 Drawing:{d_prob:.1%} Voice:{v_prob:.1%} Final:{final:.3f}")
+
 
 
 
