@@ -8,24 +8,26 @@ import cv2
 from tensorflow.keras.preprocessing.image import img_to_array
 
 print("🔄 Loading models...")
-
-# CRITICAL: Patch InputLayer BEFORE any model loading
 import tensorflow.keras.layers as layers
+# Fix batch_shape BEFORE defining paths
 original_from_config = layers.InputLayer.from_config
-
 def patched_from_config(cls, config):
+    config = config.copy()
     if 'batch_shape' in config:
-        # Convert batch_shape to input_shape for TF 2.12 compatibility
-        config = config.copy()
         config['input_shape'] = config.pop('batch_shape')[1:]
     return original_from_config(cls, config)
-
 layers.InputLayer.from_config = classmethod(patched_from_config)
 
+# NOW define paths
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DRAWING_MODEL_PATH = os.path.join(BASE_DIR, "models", "drawing_model_final.h5")
+VOICE_MODEL_PATH   = os.path.join(BASE_DIR, "models", "voice_model.pkl")
+VOICE_SCALER_PATH  = os.path.join(BASE_DIR, "models", "voice_scaler.pkl")
+
+print("🔄 Loading models...")
 drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False)
 voice_model = joblib.load(VOICE_MODEL_PATH)
 voice_scaler = joblib.load(VOICE_SCALER_PATH)
-
 print("✅ Models loaded!")
 
 # 🔥 AUTO-DETECT EXACT FEATURES
@@ -118,6 +120,7 @@ if __name__ == "__main__":
     v_prob = float(voice_model.predict_proba(v_scaled)[0][1])
     final = 0.55 * d_prob + 0.45 * v_prob
     print(f"🎯 Drawing:{d_prob:.1%} Voice:{v_prob:.1%} Final:{final:.3f}")
+
 
 
 
