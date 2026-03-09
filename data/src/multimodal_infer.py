@@ -12,16 +12,15 @@ DRAWING_MODEL_PATH = os.path.join(BASE_DIR, "models", "drawing_model_final.h5")
 VOICE_MODEL_PATH   = os.path.join(BASE_DIR, "models", "voice_model.pkl")
 VOICE_SCALER_PATH  = os.path.join(BASE_DIR, "models", "voice_scaler.pkl")
 
-print("🔄 Loading models...")
-drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False)
-voice_model = joblib.load(VOICE_MODEL_PATH)
-voice_scaler = joblib.load(VOICE_SCALER_PATH)
-
-print("✅ Models loaded!")
+#print("🔄 Loading models...")
+#drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False)
+#voice_model = joblib.load(VOICE_MODEL_PATH)
+#voice_scaler = joblib.load(VOICE_SCALER_PATH)
+#print("✅ Models loaded!")
 
 # 🔥 AUTO-DETECT EXACT FEATURES
-VOICE_FEATURES = getattr(voice_scaler, 'feature_names_in_', None)
-if VOICE_FEATURES is None:
+#VOICE_FEATURES = getattr(voice_scaler, 'feature_names_in_', None)
+#if VOICE_FEATURES is None:
     # Fallback to your original
     VOICE_FEATURES = [
         'age', 'test_time', 'Jitter(%)', 'Jitter(Abs)', 'Jitter:RAP', 
@@ -29,7 +28,7 @@ if VOICE_FEATURES is None:
         'Shimmer:APQ3', 'Shimmer:APQ5', 'Shimmer:APQ11', 'Shimmer:DDA', 
         'NHR', 'HNR', 'RPDE', 'DFA', 'PPE', 'motor_UPDRS', 'sex', 'total_UPDRS'
     ]
-print(f"✅ Auto-detected {len(VOICE_FEATURES)} features: {list(VOICE_FEATURES)}")
+#print(f"✅ Auto-detected {len(VOICE_FEATURES)} features: {list(VOICE_FEATURES)}")
 
 def get_drawing_input(img_path):
     # ... same as before ...
@@ -109,6 +108,7 @@ if __name__ == "__main__":
     v_prob = float(voice_model.predict_proba(v_scaled)[0][1])
     final = 0.55 * d_prob + 0.45 * v_prob
     print(f"🎯 Drawing:{d_prob:.1%} Voice:{v_prob:.1%} Final:{final:.3f}")
+
 
 
 
