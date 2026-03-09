@@ -31,16 +31,16 @@ app = Flask(
 )
 app.secret_key = "simple_secret_key"
 
-        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        DRAWING_MODEL_PATH = os.path.join(BASE_DIR, "models", "drawing_model_final.h5")
-        VOICE_MODEL_PATH = os.path.join(BASE_DIR, "models", "voice_model.pkl")
-        VOICE_SCALER_PATH = os.path.join(BASE_DIR, "models", "voice_scaler.pkl")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DRAWING_MODEL_PATH = os.path.join(BASE_DIR, "models", "drawing_model_final.h5")
+VOICE_MODEL_PATH = os.path.join(BASE_DIR, "models", "voice_model.pkl")
+VOICE_SCALER_PATH = os.path.join(BASE_DIR, "models", "voice_scaler.pkl")
 
-        drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False)
-        voice_model = joblib.load(VOICE_MODEL_PATH)
-        voice_scaler = joblib.load(VOICE_SCALER_PATH)
+drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False)
+voice_model = joblib.load(VOICE_MODEL_PATH)
+voice_scaler = joblib.load(VOICE_SCALER_PATH)
 
-        print("Models loaded successfully.")
+print("Models loaded successfully.")
 
 # ---------- DATABASE ----------
 from urllib.parse import urlparse
@@ -392,6 +392,7 @@ def logout():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
 
 
