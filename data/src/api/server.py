@@ -316,7 +316,7 @@ def predict():
         drawing_model = tf.keras.models.load_model(
             DRAWING_MODEL_PATH,
             compile=False,
-            custom_objects={"InputLayer": FixedInputLayer,"DTypePolicy": Policy}
+            custom_objects={"InputLayer": FixedInputLayer}
         )
 
     if voice_model is None:
