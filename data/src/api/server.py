@@ -77,7 +77,71 @@ def get_db():
         DB_TYPE = "sqlite"
         return sqlite3.connect(os.path.join(CURRENT_DIR, "database.db"))
 
+# ---------- DATABASE INIT ----------
+def init_db():
 
+    db = get_db()
+    cur = db.cursor()
+
+    if DB_TYPE == "postgres":
+
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        )
+        """)
+
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS reports (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER,
+            name TEXT,
+            age TEXT,
+            prediction TEXT,
+            combined_score FLOAT,
+            confidence FLOAT,
+            drawing_prob FLOAT,
+            voice_prob FLOAT,
+            risk_text TEXT,
+            severity TEXT,
+            caution TEXT,
+            test_date TIMESTAMP
+        )
+        """)
+
+    else:
+
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            password TEXT
+        )
+        """)
+
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            name TEXT,
+            age TEXT,
+            prediction TEXT,
+            combined_score REAL,
+            confidence REAL,
+            drawing_prob REAL,
+            voice_prob REAL,
+            risk_text TEXT,
+            severity TEXT,
+            caution TEXT,
+            test_date TIMESTAMP
+        )
+        """)
+
+    db.commit()
+    db.close()
+    
 # ---------- GLOBAL STATS ----------
 TOTAL_TESTS = 0
 TOTAL_PARKINSON = 0
@@ -433,6 +497,7 @@ def logout():
     session.clear()
     return redirect("/")
 
+init_db()
 
 # ================= RUN =================
 if __name__ == "__main__":
