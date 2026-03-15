@@ -297,7 +297,7 @@ def predict():
 
     # ===== Lazy load models here =====
     if drawing_model is None:
-        drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False)
+        drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False, safe_mode=False)
 
     if voice_model is None:
         voice_model = joblib.load(VOICE_MODEL_PATH)
