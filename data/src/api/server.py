@@ -44,12 +44,12 @@ DRAWING_MODEL_PATH = os.path.join(SRC_DIR, "models", "drawing_model_final.h5")
 VOICE_MODEL_PATH = os.path.join(SRC_DIR, "models", "voice_model.pkl")
 VOICE_SCALER_PATH = os.path.join(SRC_DIR, "models", "voice_scaler.pkl")
 
+# ===== Lazy loading placeholders =====
+drawing_model = None
+voice_model = None
+voice_scaler = None
 
-drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False)
-voice_model = joblib.load(VOICE_MODEL_PATH)
-voice_scaler = joblib.load(VOICE_SCALER_PATH)
-
-print("Models loaded successfully.")
+print("Server started. Models will load when prediction runs.")
 
 # ---------- DATABASE ----------
 from urllib.parse import urlparse
@@ -229,6 +229,17 @@ def report():
 def predict():
 
     global TOTAL_TESTS, TOTAL_PARKINSON, TOTAL_NO_PARKINSON
+    global drawing_model, voice_model, voice_scaler
+
+    # ===== Lazy load models here =====
+    if drawing_model is None:
+        drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False)
+
+    if voice_model is None:
+        voice_model = joblib.load(VOICE_MODEL_PATH)
+
+    if voice_scaler is None:
+        voice_scaler = joblib.load(VOICE_SCALER_PATH)
 
     if "user_id" not in session and session.get("user") != "guest":
         return jsonify({"error": "User not logged in"}), 401
