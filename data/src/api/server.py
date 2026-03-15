@@ -17,6 +17,7 @@ from collections import Counter
 from pydub import AudioSegment
 from werkzeug.security import generate_password_hash, check_password_hash
 from tensorflow.keras.layers import InputLayer
+from tensorflow.keras.mixed_precision import Policy
 
 class FixedInputLayer(InputLayer):
     def __init__(self, batch_shape=None, **kwargs):
@@ -24,6 +25,10 @@ class FixedInputLayer(InputLayer):
             kwargs["batch_input_shape"] = batch_shape
         super().__init__(**kwargs)
 
+custom_objects = {
+    "InputLayer": FixedInputLayer,
+    "DTypePolicy": Policy
+}
 
 # ---------- FFmpeg handling ----------
 ffmpeg_path = shutil.which("ffmpeg")
@@ -307,7 +312,7 @@ def predict():
         drawing_model = tf.keras.models.load_model(
             DRAWING_MODEL_PATH,
             compile=False,
-            custom_objects={"InputLayer": FixedInputLayer}
+            custom_objects={"InputLayer": FixedInputLayer,"DTypePolicy": Policy}
         )
 
     if voice_model is None:
