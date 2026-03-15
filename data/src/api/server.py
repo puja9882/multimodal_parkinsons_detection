@@ -296,8 +296,19 @@ def predict():
     global drawing_model, voice_model, voice_scaler
 
     # ===== Lazy load models here =====
-    if drawing_model is None:
-        drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False, safe_mode=False)
+    from tensorflow.keras.layers import InputLayer
+
+    class FixedInputLayer(InputLayer):
+        def __init__(self, batch_shape=None, **kwargs):
+            if batch_shape is not None:
+                kwargs["batch_input_shape"] = batch_shape
+            super().__init__(**kwargs)
+    
+        drawing_model = tf.keras.models.load_model(
+            DRAWING_MODEL_PATH,
+            compile=False,
+            custom_objects={"InputLayer": FixedInputLayer}
+        )
 
     if voice_model is None:
         voice_model = joblib.load(VOICE_MODEL_PATH)
