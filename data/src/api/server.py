@@ -47,6 +47,10 @@ app = Flask(
     static_folder=os.path.join(CURRENT_DIR, "static")
 )
 
+# ======= ADD CORS =======
+from flask_cors import CORS
+CORS(app)  # allow frontend requests from any origin
+
 app.secret_key = "simple_secret_key"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -410,10 +414,19 @@ def predict():
             db.commit()
             db.close()
 
+        # ===== Add confidence_text for frontend =====
+        if confidence < 0.33:
+            confidence_text = "Low confidence"
+        elif confidence < 0.66:
+            confidence_text = "Moderate confidence"
+        else:
+            confidence_text = "High confidence"
+
         return jsonify({
             "prediction": prediction,
             "combined_score": final_score,
             "confidence": confidence,
+            "confidence_text": confidence_text,
             "drawing_prob": d_prob,
             "voice_prob": v_prob,
             "age": age
