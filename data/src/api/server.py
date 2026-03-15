@@ -13,10 +13,17 @@ import sqlite3
 import psycopg2
 import tensorflow as tf
 import joblib
-
 from collections import Counter
 from pydub import AudioSegment
 from werkzeug.security import generate_password_hash, check_password_hash
+from tensorflow.keras.layers import InputLayer
+
+class FixedInputLayer(InputLayer):
+    def __init__(self, batch_shape=None, **kwargs):
+        if batch_shape is not None:
+            kwargs["batch_input_shape"] = batch_shape
+        super().__init__(**kwargs)
+
 
 # ---------- FFmpeg handling ----------
 ffmpeg_path = shutil.which("ffmpeg")
@@ -296,19 +303,12 @@ def predict():
     global drawing_model, voice_model, voice_scaler
 
     # ===== Lazy load models here =====
-    from tensorflow.keras.layers import InputLayer
-
-    class FixedInputLayer(InputLayer):
-        def __init__(self, batch_shape=None, **kwargs):
-            if batch_shape is not None:
-                kwargs["batch_input_shape"] = batch_shape
-            super().__init__(**kwargs)
-    
-        drawing_model = tf.keras.models.load_model(
-            DRAWING_MODEL_PATH,
-            compile=False,
-            custom_objects={"InputLayer": FixedInputLayer}
-        )
+    if drawing_model is None:
+    drawing_model = tf.keras.models.load_model(
+        DRAWING_MODEL_PATH,
+        compile=False,
+        custom_objects={"InputLayer": FixedInputLayer}
+    )
 
     if voice_model is None:
         voice_model = joblib.load(VOICE_MODEL_PATH)
