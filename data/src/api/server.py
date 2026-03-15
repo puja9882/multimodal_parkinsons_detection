@@ -38,10 +38,12 @@ app = Flask(
 app.secret_key = "simple_secret_key"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SRC_DIR = os.path.dirname(BASE_DIR)
 
-DRAWING_MODEL_PATH = os.path.join(BASE_DIR, "models", "drawing_model_final.h5")
-VOICE_MODEL_PATH = os.path.join(BASE_DIR, "models", "voice_model.pkl")
-VOICE_SCALER_PATH = os.path.join(BASE_DIR, "models", "voice_scaler.pkl")
+DRAWING_MODEL_PATH = os.path.join(SRC_DIR, "models", "drawing_model_final.h5")
+VOICE_MODEL_PATH = os.path.join(SRC_DIR, "models", "voice_model.pkl")
+VOICE_SCALER_PATH = os.path.join(SRC_DIR, "models", "voice_scaler.pkl")
+
 
 drawing_model = tf.keras.models.load_model(DRAWING_MODEL_PATH, compile=False)
 voice_model = joblib.load(VOICE_MODEL_PATH)
