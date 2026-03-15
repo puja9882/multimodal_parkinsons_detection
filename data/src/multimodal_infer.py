@@ -8,7 +8,7 @@ import cv2
 from tensorflow.keras.preprocessing.image import img_to_array
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DRAWING_MODEL_PATH = os.path.join(BASE_DIR, "models", "drawing_model_fixed.h5")
+DRAWING_MODEL_PATH = os.path.join(BASE_DIR, "models", "drawing_model_final.h5")
 VOICE_MODEL_PATH   = os.path.join(BASE_DIR, "models", "voice_model.pkl")
 VOICE_SCALER_PATH  = os.path.join(BASE_DIR, "models", "voice_scaler.pkl")
 
