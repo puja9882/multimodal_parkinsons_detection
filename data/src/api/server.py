@@ -350,9 +350,9 @@ def predict():
             voice_file.save(voice_path)
             temp_files.append(voice_path)
 
-        img_input = get_drawing_input(spiral_path, drawing_model)
+        drawing_input = get_drawing_input(spiral_path, drawing_model)
         d_prob = float(
-            drawing_model.predict(img_input, verbose=0).flatten()[0]
+            drawing_model.predict(drawing_input, verbose=0).flatten()[0]
         )
 
         feature_df = extract_voice_from_wav(voice_path, 65.0)
