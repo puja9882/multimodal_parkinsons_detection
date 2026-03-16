@@ -316,7 +316,7 @@ def predict():
         drawing_model = tf.keras.models.load_model(
             DRAWING_MODEL_PATH,
             compile=False,
-            custom_objects={"InputLayer": FixedInputLayer}
+            custom_objects=custom_objects       
         )
 
     if voice_model is None:
@@ -431,6 +431,9 @@ def predict():
             "voice_prob": v_prob,
             "age": age
         })
+    except Exception as e:
+        print("Prediction error:", e)
+        return jsonify({"error": str(e)}), 500
 
     finally:
         cleanup_files(temp_files)
