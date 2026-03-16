@@ -33,7 +33,7 @@ VOICE_FEATURES = [
 
 def get_drawing_input(img_path, model):
 
-    in_shape = drawing_model.input_shape
+    in_shape = model.input_shape
 
     try:
         H, W, C = int(in_shape[1]), int(in_shape[2]), int(in_shape[3])
