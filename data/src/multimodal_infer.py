@@ -31,7 +31,7 @@ VOICE_FEATURES = [
 
 #print(f"✅ Auto-detected {len(VOICE_FEATURES)} features: {list(VOICE_FEATURES)}")
 
-def get_drawing_input(img_path):
+def get_drawing_input(img_path, model):
 
     in_shape = drawing_model.input_shape
 
