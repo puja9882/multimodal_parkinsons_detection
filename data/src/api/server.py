@@ -331,7 +331,7 @@ def predict():
     temp_files = []
 
     try:
-
+        print("Prediction request received")
         spiral_file = request.files.get("spiral_img")
         voice_file = request.files.get("voice_wav")
         name = request.form.get("name", "Not provided")
