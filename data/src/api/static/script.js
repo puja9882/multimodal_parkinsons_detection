@@ -77,7 +77,21 @@ async function predict() {
       body: formData 
     });
 
-    const data = await resp.json();
+    const text = await resp.text();
+    
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error("❌ Not JSON:", text);
+      resDiv.innerHTML = `
+        <div style="color:red;">
+          ❌ Server returned invalid response<br>
+          Check backend logs
+        </div>
+      `;
+      return;
+    }
 
     if (!resp.ok) {
       resDiv.innerHTML = `<div style="color:#f87171; padding:24px; text-align:center; background:rgba(239,68,68,0.2); border-radius:12px; border-left:5px solid #ef4444;">
