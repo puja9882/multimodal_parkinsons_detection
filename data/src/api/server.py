@@ -432,7 +432,7 @@ def predict():
             "voice_prob": v_prob,
             "age": age
         })
-   import traceback
+    import traceback
 
     except Exception as e:
         print("🔥🔥 FULL ERROR BELOW 🔥🔥")
