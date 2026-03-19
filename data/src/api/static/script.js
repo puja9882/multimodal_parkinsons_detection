@@ -1,3 +1,5 @@
+1stly i will give u all codes then see and tell last final bext solution without any issue further..
+1. script.js
 // ========== FILE UPLOAD DETECTION ==========
 document.addEventListener('change', function(e) {
   if (e.target.id === 'drawingInput') {
@@ -74,25 +76,10 @@ async function predict() {
   try {
     const resp = await fetch("/predict", { 
       method: "POST", 
-      body: formData,
-      credentials: "include"   // 🔥 VERY IMPORTANT
+      body: formData 
     });
 
-    const text = await resp.text();
-    
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      console.error("❌ Not JSON:", text);
-      resDiv.innerHTML = `
-        <div style="color:red;">
-          ❌ Server returned invalid response<br>
-          Check backend logs
-        </div>
-      `;
-      return;
-    }
+    const data = await resp.json();
 
     if (!resp.ok) {
       resDiv.innerHTML = `<div style="color:#f87171; padding:24px; text-align:center; background:rgba(239,68,68,0.2); border-radius:12px; border-left:5px solid #ef4444;">
@@ -435,5 +422,4 @@ function clearRecording() {
   if (clearBtn) clearBtn.style.display = "none";
   if (recordBtn) recordBtn.classList.remove("recording");
   if (recordText) recordText.textContent = "🎙️ Start Recording";
-
 }
