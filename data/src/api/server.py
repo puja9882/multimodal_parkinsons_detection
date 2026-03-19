@@ -332,6 +332,7 @@ def predict():
 
     try:
         print("Prediction request received")
+
         spiral_file = request.files.get("spiral_img")
         voice_file = request.files.get("voice_wav")
         name = request.form.get("name", "Not provided")
@@ -364,64 +365,18 @@ def predict():
         )
 
         final_score = 0.55 * d_prob + 0.45 * v_prob
-
         confidence = abs(final_score - 0.5) * 2
-
         prediction = "Parkinson" if final_score >= 0.48 else "No Parkinson"
 
         TOTAL_TESTS += 1
         TOTAL_PARKINSON += prediction == "Parkinson"
         TOTAL_NO_PARKINSON += prediction == "No Parkinson"
 
-        if session.get("user") != "guest":
-
-            db = get_db()
-            cur = db.cursor()
-
-            placeholder = "%s" if DB_TYPE == "postgres" else "?"
-
-            if final_score < 0.30:
-                severity = "Low Risk"
-            elif final_score < 0.60:
-                severity = "Moderate Risk"
-            else:
-                severity = "High Risk"
-
-            cur.execute(f"""
-                INSERT INTO reports (
-                    user_id, name, age, prediction,
-                    combined_score, confidence,
-                    drawing_prob, voice_prob,
-                    risk_text, severity, caution, test_date
-                )
-                VALUES ({placeholder},{placeholder},{placeholder},{placeholder},
-                        {placeholder},{placeholder},{placeholder},{placeholder},
-                        {placeholder},{placeholder},{placeholder}, CURRENT_TIMESTAMP)
-            """,
-            (
-                session["user_id"],
-                name,
-                age,
-                prediction,
-                final_score,
-                confidence,
-                d_prob,
-                v_prob,
-                "Auto generated screening result",
-                severity,
-                "Consult neurologist if high risk"
-            ))
-
-            db.commit()
-            db.close()
-
-        # ===== Add confidence_text for frontend =====
-        if confidence < 0.33:
-            confidence_text = "Low confidence"
-        elif confidence < 0.66:
-            confidence_text = "Moderate confidence"
-        else:
-            confidence_text = "High confidence"
+        confidence_text = (
+            "Low confidence" if confidence < 0.33 else
+            "Moderate confidence" if confidence < 0.66 else
+            "High confidence"
+        )
 
         return jsonify({
             "prediction": prediction,
@@ -432,19 +387,20 @@ def predict():
             "voice_prob": v_prob,
             "age": age
         })
-    import traceback
 
     except Exception as e:
+        import traceback  # ✅ FIXED POSITION
         print("🔥🔥 FULL ERROR BELOW 🔥🔥")
-        traceback.print_exc()  
+        traceback.print_exc()
+
         return jsonify({
             "success": False,
             "error": str(e)
         }), 500
 
-
     finally:
         cleanup_files(temp_files)
+
 
 
 # ================= HISTORY =================
