@@ -1,5 +1,3 @@
-1stly i will give u all codes then see and tell last final bext solution without any issue further..
-1. script.js
 // ========== FILE UPLOAD DETECTION ==========
 document.addEventListener('change', function(e) {
   if (e.target.id === 'drawingInput') {
