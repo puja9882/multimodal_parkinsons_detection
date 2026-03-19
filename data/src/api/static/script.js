@@ -76,16 +76,24 @@ async function predict() {
       method: "POST", 
       body: formData 
     });
-
-    const data = await resp.json();
-
-    if (!resp.ok) {
-      resDiv.innerHTML = `<div style="color:#f87171; padding:24px; text-align:center; background:rgba(239,68,68,0.2); border-radius:12px; border-left:5px solid #ef4444;">
-        ❌ Server Error
-        <div style="font-size:13px; margin-top:12px; color:#fecaca;">${data.error || 'Unknown server error'}</div>
+    
+    // ✅ SAFE PARSING FIX (ONLY CHANGE)
+    const text = await resp.text();
+    
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (err) {
+      console.error("❌ Server returned HTML instead of JSON:", text);
+    
+      resDiv.innerHTML = `<div style="color:#f87171; padding:24px; text-align:center; background:rgba(239,68,68,0.2); border-radius:12px;">
+        ❌ Server Error<br>
+        <small>Check backend terminal</small>
       </div>`;
+      
       return;
     }
+
 
     const confPct = (data.confidence * 100).toFixed(0);
     const predClass = data.prediction === "Parkinson" ? "result-risk" : "result-ok";
