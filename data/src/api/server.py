@@ -18,11 +18,6 @@ from pydub import AudioSegment
 from werkzeug.security import generate_password_hash, check_password_hash
 from tensorflow.keras.layers import InputLayer
 from tensorflow.keras.mixed_precision import Policy
-from flask_cors import CORS   # ✅ add import
-
-app = Flask(__name__)
-
-CORS(app)  # ✅ ADD THIS LINE HERE (IMPORTANT)
 
 class FixedInputLayer(InputLayer):
     def __init__(self, batch_shape=None, **kwargs):
@@ -51,10 +46,8 @@ app = Flask(
     template_folder=os.path.join(CURRENT_DIR, "templates"),
     static_folder=os.path.join(CURRENT_DIR, "static")
 )
-
-# ======= ADD CORS =======
 from flask_cors import CORS
-CORS(app)  # allow frontend requests from any origin
+CORS(app)
 
 app.secret_key = "simple_secret_key"
 
