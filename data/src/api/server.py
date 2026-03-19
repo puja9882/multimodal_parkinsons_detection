@@ -432,9 +432,16 @@ def predict():
             "voice_prob": v_prob,
             "age": age
         })
+   import traceback
+
     except Exception as e:
-        print("Prediction error:", e)
-        return jsonify({"error": str(e)}), 500
+        print("🔥🔥 FULL ERROR BELOW 🔥🔥")
+        traceback.print_exc()  
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
 
     finally:
         cleanup_files(temp_files)
