@@ -72,10 +72,11 @@ async function predict() {
   formData.append("age", age || "");
 
   try {
-    const resp = await fetch("/predict", { 
-      method: "POST", 
-      body: formData 
+    const resp = await fetch("https://multimodal-parkinsons-detection.onrender.com/predict", {
+      method: "POST",
+      body: formData
     });
+
     
     // ✅ SAFE PARSING FIX (ONLY CHANGE)
     const text = await resp.text();
