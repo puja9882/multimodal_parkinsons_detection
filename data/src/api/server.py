@@ -11,6 +11,7 @@ import pandas as pd
 from flask import Flask, render_template, request, jsonify, redirect, session
 import sqlite3
 import psycopg2
+from psycopg2 import sql  # ADDED: For safe SQL queries
 import tensorflow as tf
 import joblib
 from collections import Counter
@@ -49,7 +50,7 @@ app = Flask(
 
 # ======= ADD CORS =======
 from flask_cors import CORS
-CORS(app)  # allow frontend requests from any origin
+CORS(app)
 
 app.secret_key = "simple_secret_key"
 
@@ -74,13 +75,11 @@ DB_TYPE = "sqlite"
 
 def get_db():
     global DB_TYPE
-
     DATABASE_URL = os.environ.get("DATABASE_URL")
-
+    
     if DATABASE_URL:
         DB_TYPE = "postgres"
         url = urlparse(DATABASE_URL)
-
         conn = psycopg2.connect(
             dbname=url.path[1:],
             user=url.username,
@@ -95,64 +94,60 @@ def get_db():
 
 # ---------- DATABASE INIT ----------
 def init_db():
-
     db = get_db()
     cur = db.cursor()
 
     if DB_TYPE == "postgres":
-
         cur.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
-        )
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL
+            )
         """)
 
         cur.execute("""
-        CREATE TABLE IF NOT EXISTS reports (
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER,
-            name TEXT,
-            age TEXT,
-            prediction TEXT,
-            combined_score FLOAT,
-            confidence FLOAT,
-            drawing_prob FLOAT,
-            voice_prob FLOAT,
-            risk_text TEXT,
-            severity TEXT,
-            caution TEXT,
-            test_date TIMESTAMP
-        )
+            CREATE TABLE IF NOT EXISTS reports (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER,
+                name TEXT,
+                age TEXT,
+                prediction TEXT,
+                combined_score FLOAT,
+                confidence FLOAT,
+                drawing_prob FLOAT,
+                voice_prob FLOAT,
+                risk_text TEXT,
+                severity TEXT,
+                caution TEXT,
+                test_date TIMESTAMP
+            )
         """)
-
     else:
-
         cur.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE,
-            password TEXT
-        )
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE,
+                password TEXT
+            )
         """)
 
         cur.execute("""
-        CREATE TABLE IF NOT EXISTS reports (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            name TEXT,
-            age TEXT,
-            prediction TEXT,
-            combined_score REAL,
-            confidence REAL,
-            drawing_prob REAL,
-            voice_prob REAL,
-            risk_text TEXT,
-            severity TEXT,
-            caution TEXT,
-            test_date TIMESTAMP
-        )
+            CREATE TABLE IF NOT EXISTS reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                name TEXT,
+                age TEXT,
+                prediction TEXT,
+                combined_score REAL,
+                confidence REAL,
+                drawing_prob REAL,
+                voice_prob REAL,
+                risk_text TEXT,
+                severity TEXT,
+                caution TEXT,
+                test_date TIMESTAMP
+            )
         """)
 
     db.commit()
@@ -163,7 +158,6 @@ TOTAL_TESTS = 0
 TOTAL_PARKINSON = 0
 TOTAL_NO_PARKINSON = 0
 
-
 def cleanup_files(paths):
     for path in paths:
         try:
@@ -172,15 +166,18 @@ def cleanup_files(paths):
         except Exception:
             pass
 
+# ================= ERROR HANDLER =================
+@app.errorhandler(Exception)
+def handle_error(error):
+    print(f"Server error: {str(error)}")
+    return jsonify({"error": "Server error occurred. Please try again."}), 500
 
 # ================= LOGIN =================
 @app.route("/", methods=["GET", "POST"])
 def login():
-
     error = None
 
     if request.method == "POST":
-
         if "guest" in request.form:
             session.clear()
             session["user"] = "guest"
@@ -192,87 +189,95 @@ def login():
         db = get_db()
         cur = db.cursor()
 
-        placeholder = "%s" if DB_TYPE == "postgres" else "?"
-
-        cur.execute(f"SELECT id, password FROM users WHERE username={placeholder}", (username,))
-        user = cur.fetchone()
-
-        if user:
-            if check_password_hash(user[1], password):
-                session.clear()
-                session["user_id"] = user[0]
-                session["username"] = username
-                db.close()
-                return redirect("/home")
-            else:
-                error = "Incorrect password."
-
-        else:
-
-            hashed_pw = generate_password_hash(password)
-
-            try:
+        try:
+            if DB_TYPE == "postgres":
                 cur.execute(
-                    f"INSERT INTO users (username, password) VALUES ({placeholder}, {placeholder})",
-                    (username, hashed_pw)
+                    sql.SQL("SELECT id, password FROM users WHERE username = %s"),
+                    (username,)
                 )
+            else:
+                cur.execute("SELECT id, password FROM users WHERE username = ?", (username,))
+            
+            user = cur.fetchone()
+
+            if user:
+                if check_password_hash(user[1], password):
+                    session.clear()
+                    session["user_id"] = user[0]
+                    session["username"] = username
+                    db.close()
+                    return redirect("/home")
+                else:
+                    error = "Incorrect password."
+
+            else:
+                hashed_pw = generate_password_hash(password)
+
+                if DB_TYPE == "postgres":
+                    cur.execute(
+                        sql.SQL("INSERT INTO users (username, password) VALUES (%s, %s)"),
+                        (username, hashed_pw)
+                    )
+                else:
+                    cur.execute(
+                        "INSERT INTO users (username, password) VALUES (?, ?)",
+                        (username, hashed_pw)
+                    )
 
                 db.commit()
 
-                cur.execute(f"SELECT id FROM users WHERE username={placeholder}", (username,))
+                if DB_TYPE == "postgres":
+                    cur.execute(
+                        sql.SQL("SELECT id FROM users WHERE username = %s"),
+                        (username,)
+                    )
+                else:
+                    cur.execute("SELECT id FROM users WHERE username = ?", (username,))
+                
                 new_user = cur.fetchone()
-
                 session.clear()
                 session["user_id"] = new_user[0]
                 session["username"] = username
-
                 db.close()
-
                 return redirect("/home")
 
-            except sqlite3.IntegrityError:
-                error = "Username already exists."
-                db.close()
+        except sqlite3.IntegrityError:
+            error = "Username already exists."
+        except Exception as e:
+            print(f"Login error: {e}")
+            error = "Login failed. Please try again."
+        finally:
+            db.close()
 
     return render_template("login.html", error=error)
-
 
 # ================= HOME =================
 @app.route("/home")
 def home():
-
     if "user_id" not in session and session.get("user") != "guest":
         return redirect("/")
-
     return render_template("home.html")
-
 
 # ================= SCREENING =================
 @app.route("/screening")
 def screening():
-
     if "user_id" not in session and session.get("user") != "guest":
         return redirect("/")
-
     return render_template("screening.html")
-
 
 # ================= ABOUT =================
 @app.route("/about")
 def about():
     return render_template("about.html")
 
-
 # ================= REPORT =================
 @app.route("/report")
 def report():
-
     prediction = request.args.get("prediction", "Not available")
     conf_pct = int(float(request.args.get("conf", 0)))
     combined = request.args.get("combined", "0.000")
     draw_pct = request.args.get("draw", "0")
     voice_pct = request.args.get("voice", "0")
-
     name = request.args.get("name", "Not provided")
     age = request.args.get("age", "Not provided")
 
@@ -303,34 +308,35 @@ def report():
         risk_text=risk_text
     )
 
-
 # ================= PREDICTION =================
 @app.route("/predict", methods=["POST"])
 def predict():
-
     global TOTAL_TESTS, TOTAL_PARKINSON, TOTAL_NO_PARKINSON
     global drawing_model, voice_model, voice_scaler
-
-    # ===== Lazy load models here =====
-    if drawing_model is None:
-        drawing_model = tf.keras.models.load_model(
-            DRAWING_MODEL_PATH,
-            compile=False,
-            safe_mode=False
-        )
-
-    if voice_model is None:
-        voice_model = joblib.load(VOICE_MODEL_PATH)
-
-    if voice_scaler is None:
-        voice_scaler = joblib.load(VOICE_SCALER_PATH)
-
-    if "user_id" not in session and session.get("user") != "guest":
-        return jsonify({"error": "User not logged in"}), 401
 
     temp_files = []
 
     try:
+        # ===== Lazy load models =====
+        if drawing_model is None:
+            print("Loading drawing model...")
+            drawing_model = tf.keras.models.load_model(
+                DRAWING_MODEL_PATH,
+                compile=False,
+                safe_mode=False
+            )
+
+        if voice_model is None:
+            print("Loading voice model...")
+            voice_model = joblib.load(VOICE_MODEL_PATH)
+
+        if voice_scaler is None:
+            print("Loading voice scaler...")
+            voice_scaler = joblib.load(VOICE_SCALER_PATH)
+
+        if "user_id" not in session and session.get("user") != "guest":
+            return jsonify({"error": "User not logged in"}), 401
+
         print("Prediction request received")
         spiral_file = request.files.get("spiral_img")
         voice_file = request.files.get("voice_wav")
@@ -338,8 +344,9 @@ def predict():
         age = request.form.get("age", "Not provided")
 
         if not spiral_file or not voice_file:
-            return jsonify({"error": "Missing input"}), 400
+            return jsonify({"error": "Please upload both spiral drawing and voice recording"}), 400
 
+        # Save files
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as img:
             spiral_path = img.name
             spiral_file.save(spiral_path)
@@ -350,166 +357,172 @@ def predict():
             voice_file.save(voice_path)
             temp_files.append(voice_path)
 
+        # Predictions
         drawing_input = get_drawing_input(spiral_path, drawing_model)
-        d_prob = float(
-            drawing_model.predict(drawing_input, verbose=0).flatten()[0]
-        )
+        d_prob = float(drawing_model.predict(drawing_input, verbose=0).flatten()[0])
 
         feature_df = extract_voice_from_wav(voice_path, 65.0)
-
-        v_prob = float(
-            voice_model.predict_proba(
-                voice_scaler.transform(feature_df)
-            )[0][1]
-        )
+        v_prob = float(voice_model.predict_proba(voice_scaler.transform(feature_df))[0][1])
 
         final_score = 0.55 * d_prob + 0.45 * v_prob
-
         confidence = abs(final_score - 0.5) * 2
-
         prediction = "Parkinson" if final_score >= 0.48 else "No Parkinson"
 
         TOTAL_TESTS += 1
         TOTAL_PARKINSON += prediction == "Parkinson"
         TOTAL_NO_PARKINSON += prediction == "No Parkinson"
 
+        # Save to database for logged-in users
         if session.get("user") != "guest":
-
             db = get_db()
             cur = db.cursor()
+            
+            try:
+                if final_score < 0.30:
+                    severity = "Low Risk"
+                elif final_score < 0.60:
+                    severity = "Moderate Risk"
+                else:
+                    severity = "High Risk"
 
-            placeholder = "%s" if DB_TYPE == "postgres" else "?"
+                if DB_TYPE == "postgres":
+                    cur.execute(
+                        sql.SQL("""
+                            INSERT INTO reports (
+                                user_id, name, age, prediction, combined_score, confidence,
+                                drawing_prob, voice_prob, risk_text, severity, caution, test_date
+                            )
+                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, CURRENT_TIMESTAMP)
+                        """),
+                        (
+                            session["user_id"], name, age, prediction, final_score, confidence,
+                            d_prob, v_prob, "Auto generated screening result", severity,
+                            "Consult neurologist if high risk"
+                        )
+                    )
+                else:
+                    cur.execute("""
+                        INSERT INTO reports (
+                            user_id, name, age, prediction, combined_score, confidence,
+                            drawing_prob, voice_prob, risk_text, severity, caution, test_date
+                        )
+                        VALUES (?,?,?,?,?,?,?,?,?,?,datetime('now'))
+                    """, (
+                        session["user_id"], name, age, prediction, final_score, confidence,
+                        d_prob, v_prob, "Auto generated screening result", severity,
+                        "Consult neurologist if high risk"
+                    ))
+                
+                db.commit()
+            except Exception as e:
+                print(f"Database save error: {e}")
+            finally:
+                db.close()
 
-            if final_score < 0.30:
-                severity = "Low Risk"
-            elif final_score < 0.60:
-                severity = "Moderate Risk"
-            else:
-                severity = "High Risk"
-
-            cur.execute(f"""
-                INSERT INTO reports (
-                    user_id, name, age, prediction,
-                    combined_score, confidence,
-                    drawing_prob, voice_prob,
-                    risk_text, severity, caution, test_date
-                )
-                VALUES ({placeholder},{placeholder},{placeholder},{placeholder},
-                        {placeholder},{placeholder},{placeholder},{placeholder},
-                        {placeholder},{placeholder},{placeholder}, CURRENT_TIMESTAMP)
-            """,
-            (
-                session["user_id"],
-                name,
-                age,
-                prediction,
-                final_score,
-                confidence,
-                d_prob,
-                v_prob,
-                "Auto generated screening result",
-                severity,
-                "Consult neurologist if high risk"
-            ))
-
-            db.commit()
-            db.close()
-
-        # ===== Add confidence_text for frontend =====
-        if confidence < 0.33:
-            confidence_text = "Low confidence"
-        elif confidence < 0.66:
-            confidence_text = "Moderate confidence"
-        else:
-            confidence_text = "High confidence"
+        confidence_text = "Low confidence" if confidence < 0.33 else "Moderate confidence" if confidence < 0.66 else "High confidence"
 
         return jsonify({
             "prediction": prediction,
-            "combined_score": final_score,
-            "confidence": confidence,
+            "combined_score": round(final_score, 3),
+            "confidence": round(confidence, 3),
             "confidence_text": confidence_text,
-            "drawing_prob": d_prob,
-            "voice_prob": v_prob,
+            "drawing_prob": round(d_prob, 3),
+            "voice_prob": round(v_prob, 3),
+            "name": name,
             "age": age
         })
-    except Exception as e:
-        print("Prediction error:", e)
-        return jsonify({"error": str(e)}), 500
 
+    except Exception as e:
+        print(f"Prediction error: {str(e)}")
+        return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
     finally:
         cleanup_files(temp_files)
-
 
 # ================= HISTORY =================
 @app.route("/history")
 def history():
-
     if "user_id" not in session:
         return redirect("/")
 
     db = get_db()
     cur = db.cursor()
-
-    placeholder = "%s" if DB_TYPE == "postgres" else "?"
-
-    cur.execute(f"""
-        SELECT id, test_date, name, age, prediction,
-               combined_score, confidence,
-               drawing_prob, voice_prob, severity
-        FROM reports
-        WHERE user_id = {placeholder}
-        ORDER BY id DESC
-    """, (session["user_id"],))
-
-    reports = cur.fetchall()
-    db.close()
+    
+    try:
+        if DB_TYPE == "postgres":
+            cur.execute(
+                sql.SQL("""
+                    SELECT id, test_date, name, age, prediction, combined_score, 
+                           confidence, drawing_prob, voice_prob, severity
+                    FROM reports WHERE user_id = %s ORDER BY id DESC
+                """),
+                (session["user_id"],)
+            )
+        else:
+            cur.execute("""
+                SELECT id, test_date, name, age, prediction, combined_score, 
+                       confidence, drawing_prob, voice_prob, severity
+                FROM reports WHERE user_id = ? ORDER BY id DESC
+            """, (session["user_id"],))
+        
+        reports = cur.fetchall()
+    finally:
+        db.close()
 
     return render_template("history.html", reports=reports)
-
 
 # ================= DASHBOARD =================
 @app.route("/dashboard")
 def dashboard():
-
     if "user_id" not in session:
         return redirect(url_for("login"))
 
     conn = get_db()
     cur = conn.cursor()
-
-    placeholder = "%s" if DB_TYPE == "postgres" else "?"
-
     user_id = session["user_id"]
+    
+    try:
+        if DB_TYPE == "postgres":
+            cur.execute(sql.SQL("SELECT COUNT(*) FROM reports WHERE user_id = %s"), (user_id,))
+            total = cur.fetchone()[0]
 
-    cur.execute(f"SELECT COUNT(*) FROM reports WHERE user_id={placeholder}", (user_id,))
-    total = cur.fetchone()[0]
+            cur.execute(sql.SQL("SELECT COUNT(*) FROM reports WHERE user_id = %s AND prediction = %s"), (user_id, "Parkinson"))
+            parkinson_count = cur.fetchone()[0]
 
-    cur.execute(f"SELECT COUNT(*) FROM reports WHERE user_id={placeholder} AND prediction='Parkinson'", (user_id,))
-    parkinson_count = cur.fetchone()[0]
+            cur.execute(sql.SQL("SELECT COUNT(*) FROM reports WHERE user_id = %s AND prediction = %s"), (user_id, "No Parkinson"))
+            normal_count = cur.fetchone()[0]
 
-    cur.execute(f"SELECT COUNT(*) FROM reports WHERE user_id={placeholder} AND prediction='No Parkinson'", (user_id,))
-    normal_count = cur.fetchone()[0]
+            cur.execute(sql.SQL("SELECT AVG(combined_score) FROM reports WHERE user_id = %s"), (user_id,))
+            avg_score = cur.fetchone()[0] or 0
 
-    cur.execute(f"SELECT AVG(combined_score) FROM reports WHERE user_id={placeholder}", (user_id,))
-    avg_score = cur.fetchone()[0]
-    avg_score = round(avg_score, 3) if avg_score else 0
+            cur.execute(sql.SQL("""
+                SELECT severity, COUNT(*) FROM reports WHERE user_id = %s 
+                GROUP BY severity
+            """), (user_id,))
+            risk_data = cur.fetchall()
+        else:
+            cur.execute("SELECT COUNT(*) FROM reports WHERE user_id = ?", (user_id,))
+            total = cur.fetchone()[0]
 
-    cur.execute(f"""
-        SELECT severity, COUNT(*)
-        FROM reports
-        WHERE user_id={placeholder}
-        GROUP BY severity
-    """, (user_id,))
+            cur.execute("SELECT COUNT(*) FROM reports WHERE user_id = ? AND prediction = ?", (user_id, "Parkinson"))
+            parkinson_count = cur.fetchone()[0]
 
-    risk_data = cur.fetchall()
+            cur.execute("SELECT COUNT(*) FROM reports WHERE user_id = ? AND prediction = ?", (user_id, "No Parkinson"))
+            normal_count = cur.fetchone()[0]
 
-    conn.close()
+            cur.execute("SELECT AVG(combined_score) FROM reports WHERE user_id = ?", (user_id,))
+            avg_score = cur.fetchone()[0] or 0
 
-    risk_labels = [row[0] for row in risk_data]
-    risk_counts = [row[1] for row in risk_data]
+            cur.execute("SELECT severity, COUNT(*) FROM reports WHERE user_id = ? GROUP BY severity", (user_id,))
+            risk_data = cur.fetchall()
+        
+        avg_score = round(avg_score, 3)
+        risk_labels = [row[0] for row in risk_data]
+        risk_counts = [row[1] for row in risk_data]
+        trend_dates = []
+        trend_values = []
 
-    trend_dates = []
-    trend_values = []
+    finally:
+        conn.close()
 
     return render_template(
         "dashboard.html",
@@ -523,16 +536,13 @@ def dashboard():
         trend_values=trend_values
     )
 
-
 # ================= LOGOUT =================
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect("/")
 
-init_db()
-
-# ================= RUN =================
 if __name__ == "__main__":
+    init_db()
     port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, debug=True)
