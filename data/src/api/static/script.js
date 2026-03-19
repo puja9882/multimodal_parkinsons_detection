@@ -74,7 +74,8 @@ async function predict() {
   try {
     const resp = await fetch("/predict", { 
       method: "POST", 
-      body: formData 
+      body: formData,
+      credentials: "include"   // 🔥 VERY IMPORTANT
     });
 
     const text = await resp.text();
