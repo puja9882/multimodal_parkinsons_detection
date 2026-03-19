@@ -1,3 +1,4 @@
+
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
@@ -306,7 +307,6 @@ def report():
 
 # ================= PREDICTION =================
 @app.route("/predict", methods=["POST"])
-print("🔥 /predict endpoint HIT")
 def predict():
 
     global TOTAL_TESTS, TOTAL_PARKINSON, TOTAL_NO_PARKINSON
@@ -326,9 +326,8 @@ def predict():
     if voice_scaler is None:
         voice_scaler = joblib.load(VOICE_SCALER_PATH)
 
-    # TEMP: allow all users
-    #if "user_id" not in session and session.get("user") != "guest":
-     #   return jsonify({"error": "User not logged in"}), 401
+    if "user_id" not in session and session.get("user") != "guest":
+        return jsonify({"error": "User not logged in"}), 401
 
     temp_files = []
 
@@ -466,7 +465,6 @@ def history():
     reports = cur.fetchall()
     db.close()
 
-    print("✅ Sending response")
     return render_template("history.html", reports=reports)
 
 
