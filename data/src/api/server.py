@@ -54,7 +54,7 @@ app.secret_key = "simple_secret_key"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SRC_DIR = os.path.dirname(BASE_DIR)
 
-DRAWING_MODEL_PATH = os.path.join(SRC_DIR, "models", "drawing_model_fixed.keras")
+DRAWING_MODEL_PATH = os.path.join(SRC_DIR, "models", "drawing_model_resaved.h5")
 VOICE_MODEL_PATH = os.path.join(SRC_DIR, "models", "voice_model.pkl")
 VOICE_SCALER_PATH = os.path.join(SRC_DIR, "models", "voice_scaler.pkl")
 
