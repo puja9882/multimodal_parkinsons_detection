@@ -313,8 +313,7 @@ def predict():
     if drawing_model is None:
         drawing_model = tf.keras.models.load_model(
             DRAWING_MODEL_PATH,
-            compile=False,
-            safe_mode=False
+            compile=False        
         )
 
     if voice_model is None:
